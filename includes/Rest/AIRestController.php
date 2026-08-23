@@ -90,20 +90,45 @@ final class AIRestController {
 	 * a decoded nodera-patch/v1 array. Nodera itself remains provider-neutral.
 	 */
 	public function generate_patch( WP_REST_Request $request ): WP_REST_Response|WP_Error {
-		$body = $request->get_json_params();
-		if ( ! is_array( $body ) ) {
+		$input = $request->get_json_params();
+		if ( ! is_array( $input ) ) {
 			return new WP_Error( 'nodera_ai_invalid_request', 'Invalid JSON body.', array( 'status' => 400 ) );
 		}
+
+		$body = array_intersect_key(
+			$input,
+			array_flip( array( 'postId', 'context', 'currentBlocks', 'editableStableIds', 'visualFacts' ) )
+		);
 		$encoded = wp_json_encode( $body );
 		if ( ! is_string( $encoded ) || strlen( $encoded ) > 1048576 ) {
 			return new WP_Error( 'nodera_ai_request_too_large', 'AI generation request exceeds the maximum size.', array( 'status' => 413 ) );
+		}
+
+		$context = is_array( $body['context'] ?? null ) ? $body['context'] : array();
+		$blocks  = is_array( $body['currentBlocks'] ?? null ) ? $body['currentBlocks'] : array();
+		$ids     = is_array( $body['editableStableIds'] ?? null ) ? array_values( array_filter( $body['editableStableIds'], 'is_string' ) ) : array();
+		if ( 'nodera-ai-context/v1' !== ( $context['schema'] ?? null ) || ! is_array( $context['target'] ?? null ) ) {
+			return new WP_Error( 'nodera_ai_invalid_context', 'Direct generation requires nodera-ai-context/v1.', array( 'status' => 400 ) );
+		}
+		$context_fingerprint = $context['target']['fingerprint'] ?? '';
+		$current_fingerprint = TargetFingerprint::hash( $blocks );
+		if ( ! is_string( $context_fingerprint ) || ! hash_equals( $current_fingerprint, $context_fingerprint ) ) {
+			return new WP_Error( 'nodera_ai_target_changed', 'Target changed before AI generation started.', array( 'status' => 409 ) );
+		}
+		$context_ids = is_array( $context['target']['stableIds'] ?? null ) ? array_values( array_filter( $context['target']['stableIds'], 'is_string' ) ) : array();
+		$expected_ids = array_values( array_unique( $ids ) );
+		$actual_ids   = array_values( array_unique( $context_ids ) );
+		sort( $expected_ids );
+		sort( $actual_ids );
+		if ( $expected_ids !== $actual_ids ) {
+			return new WP_Error( 'nodera_ai_target_scope_mismatch', 'AI context target does not match the editable Gutenberg scope.', array( 'status' => 409 ) );
 		}
 
 		/**
 		 * Filter a provider-generated Nodera patch.
 		 *
 		 * @param array|null      $patch   Decoded nodera-patch/v1 patch, or null when no provider is configured.
-		 * @param array           $body    Sanitized request payload containing context and current target data.
+		 * @param array           $body    Whitelisted request payload containing context and current target data.
 		 * @param WP_REST_Request $request Current REST request.
 		 */
 		$patch = apply_filters( 'nodera_ai_generate_patch', null, $body, $request );
