@@ -67,8 +67,7 @@ function useEditorContext(clientId?: string): EditorContext {
 	}, [clientId]);
 }
 
-function BlockAi(props: { context: EditorContext }) {
-	const { context } = props;
+function BlockAi({ context }: { context: EditorContext }) {
 	if (!context.selected) return null;
 	return (
 		<AiPanel
@@ -84,73 +83,72 @@ function BlockAi(props: { context: EditorContext }) {
 	);
 }
 
+function SelectedBlockNoderaControls(props: any) {
+	const [device, setDevice] = useState<'tablet' | 'mobile'>('tablet');
+	const context = useEditorContext(props.clientId);
+	const editorActions = useDispatch('core/editor') as any;
+	if (!context.selected) return null;
+
+	const updateBlock = (attributes: Record<string, unknown>) => props.setAttributes(attributes);
+	const updateMeta = (value: string) => {
+		const key = window.NoderaSettings?.dynamicMeta || 'nodera_dynamic_text';
+		editorActions.editPost({ meta: { ...context.meta, [key]: value } });
+	};
+
+	return (
+		<>
+			<BlockControls group="other">
+				<ToolbarGroup>
+					<Dropdown
+						popoverProps={{ placement: 'bottom-start', className: 'nodera-ai-popover' }}
+						renderToggle={({ isOpen, onToggle }) => (
+							<ToolbarButton
+								icon="superhero-alt"
+								label={__('Nodera AI', 'nodera')}
+								isPressed={isOpen}
+								onClick={onToggle}
+							>
+								{__('AI', 'nodera')}
+							</ToolbarButton>
+						)}
+						renderContent={() => (
+							<div className="nodera-toolbar-ai">
+								<BlockAi context={context} />
+							</div>
+						)}
+					/>
+				</ToolbarGroup>
+			</BlockControls>
+
+			<InspectorControls>
+				<PanelBody title={__('✦ Nodera AI', 'nodera')} initialOpen={false}>
+					<BlockAi context={context} />
+				</PanelBody>
+				<PanelBody title={__('Responsive', 'nodera')} initialOpen={false}>
+					<ResponsivePanel block={context.selected} device={device} setDevice={setDevice} update={updateBlock} />
+				</PanelBody>
+				<PanelBody title={__('Dynamic Data', 'nodera')} initialOpen={false}>
+					<DynamicPanel
+						block={context.selected}
+						metaValue={String(context.meta[window.NoderaSettings?.dynamicMeta || 'nodera_dynamic_text'] || '')}
+						updateBlock={updateBlock}
+						updateMeta={updateMeta}
+					/>
+				</PanelBody>
+				<PanelBody title={__('States & Effects', 'nodera')} initialOpen={false}>
+					<AdvancedPanel block={context.selected} update={updateBlock} />
+				</PanelBody>
+			</InspectorControls>
+		</>
+	);
+}
+
 function withNoderaGutenbergControls(BlockEdit: any) {
 	return function NoderaEnhancedBlockEdit(props: any) {
-		const [device, setDevice] = useState<'tablet' | 'mobile'>('tablet');
-		const context = useEditorContext(props.clientId);
-		const editorActions = useDispatch('core/editor') as any;
-
-		if (!props.isSelected || !context.selected) {
-			return <BlockEdit {...props} />;
-		}
-
-		const updateBlock = (attributes: Record<string, unknown>) => props.setAttributes(attributes);
-		const updateMeta = (value: string) => {
-			const key = window.NoderaSettings?.dynamicMeta || 'nodera_dynamic_text';
-			editorActions.editPost({ meta: { ...context.meta, [key]: value } });
-		};
-
 		return (
 			<>
 				<BlockEdit {...props} />
-
-				<BlockControls group="other">
-					<ToolbarGroup>
-						<Dropdown
-							popoverProps={{ placement: 'bottom-start', className: 'nodera-ai-popover' }}
-							renderToggle={({ isOpen, onToggle }) => (
-								<ToolbarButton
-									icon="superhero-alt"
-									label={__('Nodera AI', 'nodera')}
-									isPressed={isOpen}
-									onClick={onToggle}
-								>
-									{__('AI', 'nodera')}
-								</ToolbarButton>
-							)}
-							renderContent={() => (
-								<div className="nodera-toolbar-ai">
-									<BlockAi context={context} />
-								</div>
-							)}
-						/>
-					</ToolbarGroup>
-				</BlockControls>
-
-				<InspectorControls>
-					<PanelBody title={__('✦ Nodera AI', 'nodera')} initialOpen={false}>
-						<BlockAi context={context} />
-					</PanelBody>
-					<PanelBody title={__('Responsive', 'nodera')} initialOpen={false}>
-						<ResponsivePanel
-							block={context.selected}
-							device={device}
-							setDevice={setDevice}
-							update={updateBlock}
-						/>
-					</PanelBody>
-					<PanelBody title={__('Dynamic Data', 'nodera')} initialOpen={false}>
-						<DynamicPanel
-							block={context.selected}
-							metaValue={String(context.meta[window.NoderaSettings?.dynamicMeta || 'nodera_dynamic_text'] || '')}
-							updateBlock={updateBlock}
-							updateMeta={updateMeta}
-						/>
-					</PanelBody>
-					<PanelBody title={__('States & Effects', 'nodera')} initialOpen={false}>
-						<AdvancedPanel block={context.selected} update={updateBlock} />
-					</PanelBody>
-				</InspectorControls>
+				{props.isSelected ? <SelectedBlockNoderaControls {...props} /> : null}
 			</>
 		);
 	};
@@ -161,11 +159,7 @@ function PageNodera() {
 	useEffect(() => startIdentityReconciler(), []);
 
 	return (
-		<PluginSidebar
-			name="nodera-page-tools"
-			title={__('Nodera', 'nodera')}
-			icon="superhero-alt"
-		>
+		<PluginSidebar name="nodera-page-tools" title={__('Nodera', 'nodera')} icon="superhero-alt">
 			<PanelBody title={__('Build Page with AI', 'nodera')} initialOpen={false}>
 				<AiPanel
 					blocks={context.blocks}
