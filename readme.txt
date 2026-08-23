@@ -2,10 +2,25 @@
 Contributors: quochung9920
 Requires at least: 7.0
 Requires PHP: 8.1
-Stable tag: 0.1.0-alpha.1
+Stable tag: 0.1.0-alpha.2
 License: GPLv2 or later
 
-AI-native professional authoring for the native WordPress block editor.
+Nodera adds professional AI authoring, responsive overrides, native Global Styles and Block Bindings UX to Gutenberg while preserving the native WordPress document model.
 
 == Description ==
-Nodera keeps Gutenberg and post_content as the canonical document. It adds safe structured AI editing and professional authoring capabilities without forking WordPress core.
+
+Nodera is an alpha-stage Gutenberg extension. Gutenberg `post_content` remains canonical. AI results are structured, scoped and validated before a user explicitly applies them; Apply does not automatically save the post.
+
+== Installation ==
+
+Install a packaged Nodera ZIP that contains the compiled `build/` directory, activate the plugin, then open the block editor and use Nodera Studio.
+
+== Changelog ==
+
+= 0.1.0-alpha.2 =
+* Hardened AI patch validation and target fingerprints.
+* Added candidate diff/preview and deterministic quality review.
+* Added responsive/state/scoped CSS authoring.
+* Added native Global Styles and Block Bindings UX.
+* Added Interactivity API Accordion and Tabs blocks.
+* Added diagnostics, tests and package verification.

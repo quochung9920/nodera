@@ -2,19 +2,21 @@
 
 ## Canonical document
 
-WordPress `post_content` and its Gutenberg block tree are the only canonical page document. Nodera never stores a parallel complete document model.
-
-## Identity
-
-Gutenberg `clientId` is runtime-only. Nodera adds a persistent `noderaId` attribute to registered blocks and reconciles missing or duplicate identities in the editor. Frontend rendering exposes valid identities as `data-nodera-id` through `WP_HTML_Tag_Processor`.
+WordPress `post_content` and its Gutenberg block tree are the only canonical page document. Nodera does not store a parallel full-document session.
 
 ## Ownership
 
-- Gutenberg owns document editing, selection, undo/redo, save, revisions and ordinary block rendering.
-- WordPress block registry owns block capabilities.
-- Nodera BlockContractRegistry projects registered capabilities for AI.
-- Nodera AI operates on transient context and patches only.
+- Gutenberg owns block editing, selection, history, save, revisions and normal block rendering.
+- The WordPress block registry owns block schemas and capabilities.
+- Global Styles owns global design persistence.
+- Block Bindings owns dynamic attribute connections.
+- The Interactivity API owns Nodera block frontend interaction loading.
+- Nodera owns stable AI identity, responsive overrides, scoped state/CSS, AI context/patch validation, diff/review and professional UX.
 
-## Security
+## Composition root
 
-AI output is untrusted. Patches must declare `nodera-patch/v1`, stay within exported scope and match the exported target fingerprint. Unknown or unsafe block authoring is rejected.
+`nodera.php` performs requirements/autoload/bootstrap only. `Nodera\Plugin` registers the identity, contracts, responsive, bindings, blocks and REST modules.
+
+## Rendering
+
+Nodera does not render ordinary Gutenberg pages through a custom renderer. `WP_HTML_Tag_Processor` adds a safe `data-nodera-id` to rendered block roots where possible. Responsive/state CSS uses that persistent selector.

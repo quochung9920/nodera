@@ -1,10 +1,24 @@
 <?php
+/**
+ * Main plugin composition root.
+ *
+ * @package Nodera
+ */
+
 namespace Nodera;
 
+use Nodera\Bindings\DynamicBindings;
+use Nodera\Blocks\BlockRegistry;
 use Nodera\Contracts\BlockContractRegistry;
 use Nodera\Gutenberg\StableBlockId;
+use Nodera\Responsive\BreakpointRegistry;
+use Nodera\Responsive\ResponsiveStyleCompiler;
 use Nodera\Rest\AIRestController;
+use Nodera\Rest\DiagnosticsController;
 
+/**
+ * Owns Nodera feature registration.
+ */
 final class Plugin {
 	private static ?self $instance = null;
 	private bool $booted = false;
@@ -19,24 +33,71 @@ final class Plugin {
 		}
 		$this->booted = true;
 
-		$stable_ids = new StableBlockId();
-		$contracts  = new BlockContractRegistry();
+		$stable_ids  = new StableBlockId();
+		$contracts   = new BlockContractRegistry();
+		$breakpoints = new BreakpointRegistry();
+		$responsive  = new ResponsiveStyleCompiler( $breakpoints );
+		$bindings    = new DynamicBindings();
+		$blocks      = new BlockRegistry();
 
 		$stable_ids->register();
 		$contracts->register();
+		$responsive->register();
+		$bindings->register();
+		$blocks->register();
 		( new AIRestController( $contracts ) )->register();
+		( new DiagnosticsController( $contracts, $breakpoints ) )->register();
 
-		add_action( 'enqueue_block_editor_assets', [ $this, 'enqueue_editor' ] );
+		add_action( 'enqueue_block_editor_assets', array( $this, 'enqueue_editor' ) );
 	}
 
+	/**
+	 * Enqueue the compiled editor application and install block schema filters before core blocks register.
+	 */
 	public function enqueue_editor(): void {
-		$asset_file = NODERA_DIR . 'build/editor.asset.php';
-		$asset      = file_exists( $asset_file ) ? require $asset_file : [ 'dependencies' => [ 'wp-blocks', 'wp-block-editor', 'wp-data', 'wp-element', 'wp-plugins', 'wp-edit-post', 'wp-components', 'wp-i18n', 'wp-api-fetch' ], 'version' => NODERA_VERSION ];
-		if ( ! file_exists( NODERA_DIR . 'build/editor.js' ) ) {
+		$schema_bootstrap = <<<'JS'
+(function(wp){
+	if(!wp || !wp.hooks){ return; }
+	wp.hooks.addFilter('blocks.registerBlockType','nodera/persistent-attributes',function(settings){
+		var attributes = Object.assign({}, settings.attributes || {});
+		attributes.noderaId = attributes.noderaId || { type: 'string' };
+		attributes.noderaResponsive = attributes.noderaResponsive || { type: 'object' };
+		attributes.noderaStateStyles = attributes.noderaStateStyles || { type: 'object' };
+		attributes.noderaCustomCSS = attributes.noderaCustomCSS || { type: 'string' };
+		return Object.assign({}, settings, { attributes: attributes });
+	});
+})(window.wp);
+JS;
+		wp_add_inline_script( 'wp-blocks', $schema_bootstrap, 'after' );
+
+		$script = NODERA_DIR . 'build/editor.js';
+		if ( ! file_exists( $script ) ) {
 			return;
 		}
-		wp_enqueue_script( 'nodera-editor', NODERA_URL . 'build/editor.js', $asset['dependencies'], $asset['version'], true );
-		wp_enqueue_style( 'nodera-editor', NODERA_URL . 'build/editor.css', [ 'wp-components' ], $asset['version'] );
-		wp_add_inline_script( 'nodera-editor', 'window.NoderaSettings=' . wp_json_encode( [ 'version' => NODERA_VERSION, 'restRoot' => esc_url_raw( rest_url( 'nodera/v1/' ) ), 'nonce' => wp_create_nonce( 'wp_rest' ) ] ) . ';', 'before' );
+		$asset_file = NODERA_DIR . 'build/editor.asset.php';
+		$asset      = file_exists( $asset_file ) ? require $asset_file : array( 'dependencies' => array(), 'version' => NODERA_VERSION );
+		$version    = is_array( $asset ) && isset( $asset['version'] ) ? (string) $asset['version'] : NODERA_VERSION;
+		$deps       = is_array( $asset ) && isset( $asset['dependencies'] ) ? (array) $asset['dependencies'] : array();
+
+		wp_enqueue_script( 'nodera-editor', NODERA_URL . 'build/editor.js', $deps, $version, true );
+		if ( file_exists( NODERA_DIR . 'build/editor.css' ) ) {
+			wp_enqueue_style( 'nodera-editor', NODERA_URL . 'build/editor.css', array( 'wp-components' ), $version );
+		}
+		$theme = wp_get_theme();
+		wp_add_inline_script(
+			'nodera-editor',
+			'window.NoderaSettings=' . wp_json_encode(
+				array(
+					'version'     => NODERA_VERSION,
+					'wordpress'   => get_bloginfo( 'version' ),
+					'restRoot'    => esc_url_raw( rest_url( 'nodera/v1/' ) ),
+					'nonce'       => wp_create_nonce( 'wp_rest' ),
+					'theme'       => $theme->get_stylesheet(),
+					'breakpoints' => ( new BreakpointRegistry() )->all(),
+					'dynamicMeta' => DynamicBindings::META_KEY,
+				)
+			) . ';',
+			'before'
+		);
 	}
 }

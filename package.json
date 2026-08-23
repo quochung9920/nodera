@@ -1,19 +1,25 @@
 {
   "name": "nodera",
-  "version": "0.1.0-alpha.1",
+  "version": "0.1.0-alpha.2",
   "private": true,
   "description": "Nodera — AI-native WordPress Builder",
   "scripts": {
     "start": "wp-scripts start src/editor.tsx --output-path=build",
-    "build": "wp-scripts build src/editor.tsx --output-path=build",
+    "build:editor": "wp-scripts build src/editor.tsx --output-path=build",
+    "build:modules": "wp-scripts build src/blocks/accordion-view.js src/blocks/tabs-view.js --output-path=build --experimental-modules",
+    "build": "npm run build:editor && npm run build:modules",
     "typecheck": "tsc --noEmit",
     "lint:js": "wp-scripts lint-js src",
-    "lint:css": "wp-scripts lint-style src/**/*.css",
-    "test:unit": "wp-scripts test-unit-js",
+    "lint:css": "wp-scripts lint-style src/**/*.css blocks/**/*.css",
+    "test:unit": "wp-scripts test-unit-js --runInBand",
+    "test:e2e": "playwright test",
     "check:quality": "npm run typecheck && npm run lint:js && npm run lint:css && npm run test:unit && npm run build",
-    "package": "node scripts/package.mjs"
+    "package": "node scripts/package.mjs",
+    "verify:package": "node scripts/verify-package.mjs"
   },
   "devDependencies": {
+    "@playwright/test": "latest",
+    "@types/node": "latest",
     "@types/react": "latest",
     "@wordpress/scripts": "latest",
     "archiver": "latest",
@@ -21,12 +27,14 @@
   },
   "dependencies": {
     "@wordpress/api-fetch": "latest",
+    "@wordpress/block-editor": "latest",
     "@wordpress/blocks": "latest",
     "@wordpress/components": "latest",
     "@wordpress/data": "latest",
-    "@wordpress/edit-post": "latest",
+    "@wordpress/editor": "latest",
     "@wordpress/element": "latest",
     "@wordpress/i18n": "latest",
+    "@wordpress/interactivity": "latest",
     "@wordpress/plugins": "latest"
   }
 }

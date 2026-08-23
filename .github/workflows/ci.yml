@@ -3,22 +3,68 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+
+permissions:
+  contents: read
+
 jobs:
-  quality:
+  runner-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "github-actions-runner-ok"
+
+  php-syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with: { php-version: '8.1' }
+      - run: find nodera.php includes blocks tests/php -name '*.php' -print0 | xargs -0 -n1 php -l
+
+  phpunit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with: { php-version: '8.1', tools: composer:v2 }
+      - run: composer install --no-interaction --prefer-dist
+      - run: vendor/bin/phpunit
+
+  phpcs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with: { php-version: '8.1', tools: composer:v2 }
+      - run: composer install --no-interaction --prefer-dist
+      - run: vendor/bin/phpcs
+
+  js-quality:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: 22, cache: npm }
-      - uses: shivammathur/setup-php@v2
-        with: { php-version: '8.1', tools: composer:v2 }
-      - run: npm install --package-lock-only --ignore-scripts
-      - run: npm ci
-      - run: composer install --no-interaction --prefer-dist
+        with: { node-version: 22 }
+      - run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - run: npm ci --no-audit --no-fund
       - run: npm run typecheck
       - run: npm run lint:js
       - run: npm run lint:css
-      - run: vendor/bin/phpcs
-      - run: vendor/bin/phpunit
-      - run: npm run build
+      - run: npm run test:unit
+
+  build-package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - run: npm ci --no-audit --no-fund
+      - run: rm -rf build && npm run build
       - run: npm run package
+      - run: npm run verify:package
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nodera-package
+          path: dist/*.zip
+          if-no-files-found: error
