@@ -8,6 +8,11 @@ permissions:
   contents: read
 
 jobs:
+  runner-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "github-actions-runner-ok"
+
   php-syntax:
     runs-on: ubuntu-latest
     steps:
