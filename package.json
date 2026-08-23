@@ -1,0 +1,32 @@
+{
+  "name": "nodera",
+  "version": "0.1.0-alpha.1",
+  "private": true,
+  "description": "Nodera — AI-native WordPress Builder",
+  "scripts": {
+    "start": "wp-scripts start src/editor.tsx --output-path=build",
+    "build": "wp-scripts build src/editor.tsx --output-path=build",
+    "typecheck": "tsc --noEmit",
+    "lint:js": "wp-scripts lint-js src",
+    "lint:css": "wp-scripts lint-style src/**/*.css",
+    "test:unit": "wp-scripts test-unit-js",
+    "check:quality": "npm run typecheck && npm run lint:js && npm run lint:css && npm run test:unit && npm run build",
+    "package": "node scripts/package.mjs"
+  },
+  "devDependencies": {
+    "@types/react": "latest",
+    "@wordpress/scripts": "latest",
+    "archiver": "latest",
+    "typescript": "latest"
+  },
+  "dependencies": {
+    "@wordpress/api-fetch": "latest",
+    "@wordpress/blocks": "latest",
+    "@wordpress/components": "latest",
+    "@wordpress/data": "latest",
+    "@wordpress/edit-post": "latest",
+    "@wordpress/element": "latest",
+    "@wordpress/i18n": "latest",
+    "@wordpress/plugins": "latest"
+  }
+}
