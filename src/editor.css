@@ -1,1 +1,68 @@
-.nodera-note{color:#50575e;font-size:12px}.nodera-ai-preview{border:1px solid #dcdcde;border-radius:4px;padding:12px}.components-panel__body .nodera-note{margin-top:16px}
+.nodera-panel {
+	display: grid;
+	gap: 12px;
+}
+
+.nodera-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.nodera-target {
+	margin: 0;
+	padding: 8px 10px;
+	background: #f6f7f7;
+	border-radius: 4px;
+}
+
+.nodera-tabs .components-tab-panel__tabs {
+	position: sticky;
+	top: 0;
+	z-index: 2;
+	display: flex;
+	overflow-x: auto;
+	background: #fff;
+}
+
+.nodera-tabs .components-tab-panel__tabs-item {
+	min-width: max-content;
+}
+
+.nodera-field-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 8px;
+}
+
+.nodera-diff {
+	margin-left: 18px;
+}
+
+.nodera-preview {
+	padding: 12px;
+	overflow: auto;
+	background: #f6f7f7;
+	border: 1px solid #dcdcde;
+	border-radius: 4px;
+}
+
+.nodera-review h3 {
+	margin-top: 18px;
+	margin-bottom: 8px;
+}
+
+.nodera-accordion-editor,
+.nodera-tabs-editor,
+.nodera-tab-editor {
+	display: grid;
+	gap: 10px;
+	padding: 12px;
+	border: 1px solid #dcdcde;
+}
+
+@media (max-width: 520px) {
+	.nodera-field-grid {
+		grid-template-columns: 1fr;
+	}
+}
