@@ -18,6 +18,7 @@ final class ResponsiveStyleCompiler {
 	public const CSS_ATTRIBUTE        = 'noderaCustomCSS';
 
 	private const PROPERTIES = array(
+		'padding'        => 'padding',
 		'paddingTop'     => 'padding-top',
 		'paddingRight'   => 'padding-right',
 		'paddingBottom'  => 'padding-bottom',

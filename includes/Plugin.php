@@ -99,5 +99,16 @@ JS;
 			) . ';',
 			'before'
 		);
+
+		$native_runtime = NODERA_DIR . 'build/gutenberg-native.js';
+		if ( file_exists( $native_runtime ) ) {
+			wp_enqueue_script(
+				'nodera-gutenberg-native',
+				NODERA_URL . 'build/gutenberg-native.js',
+				array( 'nodera-editor', 'wp-api-fetch', 'wp-block-editor', 'wp-blocks', 'wp-components', 'wp-data', 'wp-element', 'wp-hooks', 'wp-i18n' ),
+				NODERA_VERSION,
+				true
+			);
+		}
 	}
 }

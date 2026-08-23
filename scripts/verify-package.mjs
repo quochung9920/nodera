@@ -7,7 +7,16 @@ const stat = fs.statSync(file);
 if (stat.size < 10_000) throw new Error(`Package is unexpectedly small: ${stat.size} bytes`);
 const plugin = fs.readFileSync('nodera.php', 'utf8');
 if (!plugin.includes(`Version: ${pkg.version}`)) throw new Error('Plugin header version does not match package.json.');
-for (const runtime of ['build/editor.js', 'build/editor.asset.php', 'build/accordion-view.js', 'build/tabs-view.js', 'blocks/accordion/block.json', 'blocks/tabs/block.json']) {
+for (const runtime of [
+	'build/editor.js',
+	'build/editor.asset.php',
+	'build/editor.css',
+	'build/gutenberg-native.js',
+	'build/accordion-view.js',
+	'build/tabs-view.js',
+	'blocks/accordion/block.json',
+	'blocks/tabs/block.json',
+]) {
 	if (!fs.existsSync(runtime)) throw new Error(`Runtime file missing before packaging: ${runtime}`);
 }
 console.log(`${file} verified (${stat.size} bytes)`);

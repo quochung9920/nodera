@@ -1,6 +1,6 @@
 {
   "name": "nodera",
-  "version": "0.1.0-alpha.3",
+  "version": "0.1.0-alpha.4",
   "private": true,
   "description": "Nodera — AI-native WordPress Builder",
   "scripts": {
@@ -33,6 +33,7 @@
     "@wordpress/data": "latest",
     "@wordpress/editor": "latest",
     "@wordpress/element": "latest",
+    "@wordpress/hooks": "latest",
     "@wordpress/i18n": "latest",
     "@wordpress/interactivity": "latest",
     "@wordpress/plugins": "latest"
