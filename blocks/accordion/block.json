@@ -1,0 +1,24 @@
+{
+  "$schema": "https://schemas.wp.org/trunk/block.json",
+  "apiVersion": 3,
+  "name": "nodera/accordion",
+  "version": "0.1.0-alpha.2",
+  "title": "Nodera Accordion",
+  "category": "design",
+  "icon": "menu-alt3",
+  "description": "Accessible accordion powered by the WordPress Interactivity API.",
+  "textdomain": "nodera",
+  "attributes": {
+    "title": { "type": "string", "default": "Accordion title" },
+    "content": { "type": "string", "default": "Accordion content" }
+  },
+  "supports": {
+    "html": false,
+    "interactivity": true,
+    "align": ["wide", "full"],
+    "spacing": { "margin": true, "padding": true }
+  },
+  "render": "file:./render.php",
+  "style": "file:./style.css",
+  "viewScriptModule": "nodera/accordion-view"
+}

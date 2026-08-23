@@ -23,16 +23,10 @@ final class Plugin {
 	private static ?self $instance = null;
 	private bool $booted = false;
 
-	/**
-	 * Return singleton instance.
-	 */
 	public static function instance(): self {
 		return self::$instance ??= new self();
 	}
 
-	/**
-	 * Boot all runtime modules once.
-	 */
 	public function boot(): void {
 		if ( $this->booted ) {
 			return;
@@ -58,19 +52,30 @@ final class Plugin {
 	}
 
 	/**
-	 * Enqueue the compiled editor application.
+	 * Enqueue the compiled editor application and install block schema filters before core blocks register.
 	 */
 	public function enqueue_editor(): void {
+		$schema_bootstrap = <<<'JS'
+(function(wp){
+	if(!wp || !wp.hooks){ return; }
+	wp.hooks.addFilter('blocks.registerBlockType','nodera/persistent-attributes',function(settings){
+		var attributes = Object.assign({}, settings.attributes || {});
+		attributes.noderaId = attributes.noderaId || { type: 'string' };
+		attributes.noderaResponsive = attributes.noderaResponsive || { type: 'object' };
+		attributes.noderaStateStyles = attributes.noderaStateStyles || { type: 'object' };
+		attributes.noderaCustomCSS = attributes.noderaCustomCSS || { type: 'string' };
+		return Object.assign({}, settings, { attributes: attributes });
+	});
+})(window.wp);
+JS;
+		wp_add_inline_script( 'wp-blocks', $schema_bootstrap, 'after' );
+
 		$script = NODERA_DIR . 'build/editor.js';
 		if ( ! file_exists( $script ) ) {
 			return;
 		}
-
 		$asset_file = NODERA_DIR . 'build/editor.asset.php';
-		$asset      = file_exists( $asset_file ) ? require $asset_file : array(
-			'dependencies' => array(),
-			'version'      => NODERA_VERSION,
-		);
+		$asset      = file_exists( $asset_file ) ? require $asset_file : array( 'dependencies' => array(), 'version' => NODERA_VERSION );
 		$version    = is_array( $asset ) && isset( $asset['version'] ) ? (string) $asset['version'] : NODERA_VERSION;
 		$deps       = is_array( $asset ) && isset( $asset['dependencies'] ) ? (array) $asset['dependencies'] : array();
 
@@ -78,7 +83,6 @@ final class Plugin {
 		if ( file_exists( NODERA_DIR . 'build/editor.css' ) ) {
 			wp_enqueue_style( 'nodera-editor', NODERA_URL . 'build/editor.css', array( 'wp-components' ), $version );
 		}
-
 		$theme = wp_get_theme();
 		wp_add_inline_script(
 			'nodera-editor',

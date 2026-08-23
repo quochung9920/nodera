@@ -1,0 +1,29 @@
+{
+  "$schema": "https://schemas.wp.org/trunk/block.json",
+  "apiVersion": 3,
+  "name": "nodera/tabs",
+  "version": "0.1.0-alpha.2",
+  "title": "Nodera Tabs",
+  "category": "design",
+  "icon": "index-card",
+  "description": "Keyboard-accessible tabs powered by the WordPress Interactivity API.",
+  "textdomain": "nodera",
+  "attributes": {
+    "items": {
+      "type": "array",
+      "default": [
+        { "label": "Tab one", "content": "First tab content" },
+        { "label": "Tab two", "content": "Second tab content" }
+      ]
+    }
+  },
+  "supports": {
+    "html": false,
+    "interactivity": true,
+    "align": ["wide", "full"],
+    "spacing": { "margin": true, "padding": true }
+  },
+  "render": "file:./render.php",
+  "style": "file:./style.css",
+  "viewScriptModule": "nodera/tabs-view"
+}

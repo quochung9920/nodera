@@ -1,0 +1,29 @@
+.wp-block-nodera-tabs .nodera-tabs__list {
+	display: flex;
+	gap: 0.5rem;
+	border-bottom: 1px solid currentcolor;
+}
+
+.wp-block-nodera-tabs .nodera-tabs__tab {
+	padding: 0.65rem 0.85rem;
+	border: 0;
+	border-bottom: 2px solid transparent;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	cursor: pointer;
+}
+
+.wp-block-nodera-tabs .nodera-tabs__tab.is-active {
+	border-bottom-color: currentcolor;
+	font-weight: 600;
+}
+
+.wp-block-nodera-tabs .nodera-tabs__tab:focus-visible {
+	outline: 2px solid currentcolor;
+	outline-offset: 2px;
+}
+
+.wp-block-nodera-tabs .nodera-tabs__panel {
+	padding: 1rem 0;
+}
