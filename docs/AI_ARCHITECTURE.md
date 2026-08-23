@@ -1,14 +1,15 @@
 # AI architecture
 
-Flow:
+1. User selects a subtree or uses page scope.
+2. Nodera resolves persistent IDs and contextual ancestors/siblings.
+3. Browser code captures bounded visual facts when DOM nodes are measurable.
+4. Nodera exports `nodera-ai-context/v1` and a one-shot provider-neutral prompt.
+5. External AI returns `nodera-patch/v1` only.
+6. Nodera normalizes the pasted result.
+7. The server validates schema, fingerprint, scope, operations, block authorability, registered attributes and candidate relationships.
+8. Nodera builds an in-memory candidate tree and returns semantic diff and quality findings.
+9. Gutenberg `BlockPreview` renders the candidate for review.
+10. User explicitly applies the already-validated patch through `core/block-editor` dispatch.
+11. Native Gutenberg history owns undo. The user still has to Save/Update the post.
 
-1. User chooses a block subtree or page.
-2. Nodera resolves persistent IDs.
-3. Nodera captures bounded browser visual facts where available.
-4. Nodera exports `nodera-ai-context/v1`.
-5. External AI returns `nodera-patch/v1`.
-6. Nodera normalizes and validates schema, target fingerprint, scope and authorable block types.
-7. User explicitly applies the patch through `core/block-editor` operations.
-8. Apply remains local until the user saves the WordPress post.
-
-Nodera does not transmit content to a third-party model in v0.1. External AI usage is initiated by the user through Copy for AI.
+Nodera v0.1 does not automatically transmit page content to third-party model providers.
