@@ -15,8 +15,7 @@ import '../blocks/register';
 import '../editor.css';
 
 function Sidebar() {
-	const [device, setDevice] = useState('tablet');
-	(window as unknown as { __noderaDevice?: [string, (value: string) => void] }).__noderaDevice = [device, setDevice];
+	const [device, setDevice] = useState<'tablet' | 'mobile'>('tablet');
 	useEffect(() => startIdentityReconciler(), []);
 	const state = useSelect((select: any) => {
 		const blockEditor = select('core/block-editor');
@@ -37,8 +36,13 @@ function Sidebar() {
 			postId: Number(editor.getCurrentPostId()),
 			postType: String(editor.getCurrentPostType?.() || ''),
 			postTitle: String(editor.getEditedPostAttribute?.('title') || ''),
-			meta: (editor.getEditedPostAttribute?.('meta') || {}) as Record<string,string>,
-			design: { colors: settings.colors || [], gradients: settings.gradients || [], fontSizes: settings.fontSizes || [], spacingUnits: settings.spacingUnits || [] },
+			meta: (editor.getEditedPostAttribute?.('meta') || {}) as Record<string, string>,
+			design: {
+				colors: settings.colors || [],
+				gradients: settings.gradients || [],
+				fontSizes: settings.fontSizes || [],
+				spacingUnits: settings.spacingUnits || [],
+			},
 		};
 	}, []);
 	const blockActions = useDispatch('core/block-editor') as any;
@@ -53,13 +57,25 @@ function Sidebar() {
 		{ name: 'dynamic', title: __('Dynamic', 'nodera') },
 		{ name: 'advanced', title: __('Advanced', 'nodera') },
 	];
-	return <><PluginSidebarMoreMenuItem target="nodera-studio">{__('Nodera Studio', 'nodera')}</PluginSidebarMoreMenuItem><PluginSidebar name="nodera-studio" title={__('Nodera Studio', 'nodera')}><PanelBody initialOpen><TabPanel className="nodera-tabs" tabs={tabs}>{(tab) => {
-		if (tab.name === 'ai') return <AiPanel blocks={state.blocks} target={target} ancestors={state.ancestors} siblings={state.siblings} postId={state.postId} postType={state.postType} postTitle={state.postTitle} design={state.design} />;
-		if (tab.name === 'responsive') return <ResponsivePanel block={state.selected} update={updateSelected} />;
-		if (tab.name === 'design') return <DesignPanel />;
-		if (tab.name === 'dynamic') return <DynamicPanel block={state.selected} metaValue={String(state.meta[window.NoderaSettings?.dynamicMeta || 'nodera_dynamic_text'] || '')} updateBlock={updateSelected} updateMeta={updateMeta} />;
-		return <AdvancedPanel block={state.selected} update={updateSelected} />;
-	}}</TabPanel></PanelBody></PluginSidebar></>;
+
+	return (
+		<>
+			<PluginSidebarMoreMenuItem target="nodera-studio">{__('Nodera Studio', 'nodera')}</PluginSidebarMoreMenuItem>
+			<PluginSidebar name="nodera-studio" title={__('Nodera Studio', 'nodera')}>
+				<PanelBody initialOpen>
+					<TabPanel className="nodera-tabs" tabs={tabs}>
+						{(tab) => {
+							if (tab.name === 'ai') return <AiPanel blocks={state.blocks} target={target} ancestors={state.ancestors} siblings={state.siblings} postId={state.postId} postType={state.postType} postTitle={state.postTitle} design={state.design} />;
+							if (tab.name === 'responsive') return <ResponsivePanel block={state.selected} device={device} setDevice={setDevice} update={updateSelected} />;
+							if (tab.name === 'design') return <DesignPanel />;
+							if (tab.name === 'dynamic') return <DynamicPanel block={state.selected} metaValue={String(state.meta[window.NoderaSettings?.dynamicMeta || 'nodera_dynamic_text'] || '')} updateBlock={updateSelected} updateMeta={updateMeta} />;
+							return <AdvancedPanel block={state.selected} update={updateSelected} />;
+						}}
+					</TabPanel>
+				</PanelBody>
+			</PluginSidebar>
+		</>
+	);
 }
 
 registerPlugin('nodera', { render: Sidebar });
