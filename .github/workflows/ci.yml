@@ -3,22 +3,39 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+
 jobs:
   quality:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: 22, cache: npm }
+        with:
+          node-version: 22
       - uses: shivammathur/setup-php@v2
-        with: { php-version: '8.1', tools: composer:v2 }
-      - run: npm install --package-lock-only --ignore-scripts
-      - run: npm ci
+        with:
+          php-version: '8.1'
+          tools: composer:v2
+      - name: Create deterministic npm lock for this checkout
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - run: npm ci --no-audit --no-fund
       - run: composer install --no-interaction --prefer-dist
+      - name: PHP syntax
+        run: find nodera.php includes blocks tests/php -name '*.php' -print0 | xargs -0 -n1 php -l
       - run: npm run typecheck
       - run: npm run lint:js
       - run: npm run lint:css
       - run: vendor/bin/phpcs
       - run: vendor/bin/phpunit
-      - run: npm run build
+      - run: npm run test:unit
+      - name: Clean build
+        run: rm -rf build && npm run build
       - run: npm run package
+      - run: npm run verify:package
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nodera-package
+          path: dist/*.zip
+          if-no-files-found: error

@@ -1,1 +1,15 @@
-<?xml version="1.0"?><ruleset name="Nodera"><description>Nodera coding standards.</description><file>nodera.php</file><file>includes</file><rule ref="WordPress-Core"/><rule ref="WordPress-Docs"/><rule ref="WordPress-Extra"/><exclude-pattern>vendor/*</exclude-pattern><arg name="extensions" value="php"/></ruleset>
+<?xml version="1.0"?>
+<ruleset name="Nodera">
+	<description>Nodera WordPress coding standards.</description>
+	<file>nodera.php</file>
+	<file>includes</file>
+	<file>blocks</file>
+	<file>tests/php</file>
+	<exclude-pattern>build/*</exclude-pattern>
+	<exclude-pattern>vendor/*</exclude-pattern>
+	<rule ref="WordPress-Core">
+		<exclude name="WordPress.PHP.YodaConditions.NotYoda"/>
+		<exclude name="WordPress.NamingConventions.ValidVariableName.VariableNotSnakeCase"/>
+	</rule>
+	<arg name="extensions" value="php"/>
+</ruleset>
