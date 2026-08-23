@@ -6,7 +6,9 @@ Nodera is a professional authoring and AI safety layer for the native WordPress 
 
 ## Functional alpha
 
-Version `0.1.0-alpha.2` includes:
+Version `0.1.0-alpha.3` includes a committed production runtime under `build/`, so WordPress users do **not** need Node.js, npm, Composer, TypeScript or Git to activate and use the plugin.
+
+Included capabilities:
 
 - persistent `noderaId` block identity;
 - machine-readable contracts projected from the WordPress block registry;
@@ -18,13 +20,22 @@ Version `0.1.0-alpha.2` includes:
 - native WordPress Global Styles editing for supported color values;
 - native Block Bindings UX for a safe registered post-meta source;
 - accessible Nodera Accordion and Tabs using the WordPress Interactivity API;
-- diagnostics, PHPUnit/Jest-style unit tests, Playwright local smoke harness and installable ZIP packaging.
+- diagnostics, tests and installable ZIP packaging support.
+
+## Install without Node.js
+
+1. Download the repository ZIP from the `main` branch, or use a packaged Nodera ZIP.
+2. In WordPress go to **Plugins → Add Plugin → Upload Plugin**.
+3. Upload the ZIP and activate **Nodera — AI-native WordPress Builder**.
+4. Open a page in the block editor and open **Nodera Studio**.
+
+The committed `build/` directory is the production runtime. Node.js is needed only by developers who want to rebuild the TypeScript/React sources.
 
 ## Architecture invariant
 
 `post_content` / the Gutenberg block tree is the only canonical page document. Nodera does not maintain a parallel whole-page session, fork Gutenberg, replace WordPress revisions or render normal core blocks through a second renderer.
 
-## Development
+## Developer build
 
 ```bash
 npm install --package-lock-only --ignore-scripts
