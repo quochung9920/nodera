@@ -1,4 +1,6 @@
-.nodera-panel {
+.nodera-panel,
+.nodera-native-ai,
+.nodera-native-controls {
 	display: grid;
 	gap: 12px;
 }
@@ -16,26 +18,14 @@
 	border-radius: 4px;
 }
 
-.nodera-tabs .components-tab-panel__tabs {
-	position: sticky;
-	top: 0;
-	z-index: 2;
-	display: flex;
-	overflow-x: auto;
-	background: #fff;
-}
-
-.nodera-tabs .components-tab-panel__tabs-item {
-	min-width: max-content;
-}
-
 .nodera-field-grid {
 	display: grid;
 	grid-template-columns: repeat(2, minmax(0, 1fr));
 	gap: 8px;
 }
 
-.nodera-diff {
+.nodera-diff,
+.nodera-native-diff ul {
 	margin-left: 18px;
 }
 
@@ -50,6 +40,27 @@
 .nodera-review h3 {
 	margin-top: 18px;
 	margin-bottom: 8px;
+}
+
+.nodera-toolbar-ai {
+	width: min(430px, calc(100vw - 32px));
+	max-height: min(72vh, 720px);
+	padding: 16px;
+	overflow: auto;
+}
+
+.nodera-ai-popover .components-popover__content {
+	padding: 0;
+}
+
+.nodera-manual-ai {
+	padding-top: 10px;
+	border-top: 1px solid #dcdcde;
+}
+
+.nodera-manual-ai summary {
+	cursor: pointer;
+	font-weight: 600;
 }
 
 .nodera-accordion-editor,
