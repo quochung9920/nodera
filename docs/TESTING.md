@@ -1,9 +1,10 @@
 # Testing
 
-Automated repository gates:
+## Repository gates
 
 ```bash
 npm install --no-audit --no-fund
+npm run verify:deps
 composer validate --strict
 composer install
 npm run typecheck
@@ -18,11 +19,21 @@ npm run package
 npm run verify:package
 ```
 
-For the JavaScript/build/package side, `npm run release:verify` runs the quality, clean build, runtime integrity, packaging and package integrity sequence.
+`npm run release:verify` covers the JavaScript/build/package side. A stable release additionally requires real generated/reviewed dependency lockfiles and:
 
-`verify:runtime` requires a single `build/editor.js` Gutenberg-native runtime, synchronized release metadata, portable AI export/import markers, the production security hardening files and no temporary `build/gutenberg-native.js` bridge. Packaging creates both a ZIP and SHA-256 checksum.
+```bash
+npm run release:stable:verify
+```
 
-Real WordPress acceptance uses Playwright and environment variables only:
+Do not hand-author lockfiles. Generate them from the pinned manifests in a trusted networked release environment, review dependency changes, then commit them.
+
+## CI matrix
+
+The workflow defines PHP syntax and PHPUnit coverage for PHP 8.1, 8.2, 8.3 and 8.4 plus PHPCS, TypeScript, JS/CSS lint, JS unit tests, clean build, runtime verification and package/checksum verification. The zero-dependency `runner-smoke` remains a separate infrastructure signal.
+
+## Real WordPress acceptance
+
+Playwright reads environment variables only:
 
 ```bash
 WP_BASE_URL=http://localhost:8083 \
@@ -31,18 +42,35 @@ WP_ADMIN_PASSWORD=... \
 npm run test:e2e
 ```
 
-The RC E2E suite checks:
+Projects are configured for Chromium, Firefox and WebKit. Browser tests are skipped when credentials/base URL are absent; a skip is never a PASS.
 
-- direct Gutenberg block toolbar/Inspector integration;
-- root-only lazy identity when a block is selected;
-- no descendant stable-ID writes until a subtree/page workflow needs them;
-- API-key-free portable AI controls: Copy for AI, Download Session JSON, Download Prompt and Import AI Result;
-- native `style.@tablet` responsive authoring;
-- native Core Button pseudo-state authoring plus Gutenberg Undo;
-- Core Accordion/Tabs availability and legacy Nodera variants being non-insertable.
+RC3 acceptance covers:
 
-The full portable workflow should additionally be exercised on a private local/test environment: Export → external AI → paste/upload `nodera-patch/v1` → Validate → review diff/quality → Apply → Undo → Save → Reload → frontend verification. Test stale/wrong-session imports as negative cases.
+- direct Gutenberg Block Toolbar/Inspector integration;
+- root-only lazy identity and a 100-block no-mass-ID smoke;
+- native responsive/pseudo states plus native Undo;
+- Core Accordion/Tabs preference;
+- provider-free portable export/import controls;
+- protocol 1.0/integrity metadata on the export endpoint;
+- stale-session conflict UX before server Validate/Apply;
+- keyboard activation and accessible upload control;
+- dynamic-source capability exposure.
 
-Optional provider-backed generation should be tested separately only when a provider is deliberately configured. Provider keys must never be committed.
+## Full commercial acceptance
 
-Browser tests are skipped when required environment variables are absent. A skip is not a browser PASS. See `PRODUCTION_READINESS.md` for the gates required before production certification.
+The packaged ZIP should additionally be exercised end-to-end:
+
+1. clean install/activation;
+2. block, subtree, one-block-page and whole-page portable exports;
+3. process sessions with at least two external AI clients/models;
+4. paste/upload `nodera-patch/v1`;
+5. Validate → semantic Diff → quality review → Before/After preview;
+6. Apply → native Undo/Redo → Save → Reload → frontend;
+7. stale fingerprint, scope escape, unsafe URL/CSS, invalid block/attribute and duplicate-ID negatives;
+8. ACF/WooCommerce binding tests when those integrations are enabled;
+9. 100-block performance/request-loop smoke;
+10. keyboard and manual screen-reader review;
+11. signed-update manifest/package verification against the real commercial update endpoint;
+12. rollback to the prior compatible signed release without modifying Gutenberg `post_content`.
+
+See `PRODUCTION_READINESS.md` and `COMPATIBILITY_MATRIX.md` before promoting an RC to stable.
