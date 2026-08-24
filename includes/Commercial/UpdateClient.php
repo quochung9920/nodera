@@ -14,13 +14,12 @@ use WP_Error;
  */
 final class UpdateClient {
 	private const MAX_MANIFEST_BYTES = 131072;
+	private const MAX_PACKAGE_BYTES  = 104857600;
 	private ?array $manifest_cache   = null;
 
 	public function __construct( private EntitlementManager $entitlement ) {}
 
-	/**
-	 * Register WordPress update hooks only when the service has been explicitly configured.
-	 */
+	/** Register WordPress update hooks only when the service has been explicitly configured. */
 	public function register(): void {
 		if ( ! $this->configured() ) {
 			return;
@@ -30,9 +29,7 @@ final class UpdateClient {
 		add_filter( 'upgrader_pre_download', array( $this, 'secure_download' ), 20, 4 );
 	}
 
-	/**
-	 * Add a verified update to the normal WordPress Plugins screen.
-	 */
+	/** Add a verified update to the normal WordPress Plugins screen. */
 	public function inject_update( mixed $transient ): mixed {
 		if ( ! is_object( $transient ) ) {
 			return $transient;
@@ -57,9 +54,7 @@ final class UpdateClient {
 		return $transient;
 	}
 
-	/**
-	 * Supply verified plugin metadata for the WordPress update modal.
-	 */
+	/** Supply verified plugin metadata for the WordPress update modal. */
 	public function plugin_information( mixed $result, string $action, mixed $args ): mixed {
 		if ( 'plugin_information' !== $action || ! is_object( $args ) || 'nodera' !== ( $args->slug ?? '' ) ) {
 			return $result;
@@ -84,9 +79,7 @@ final class UpdateClient {
 		);
 	}
 
-	/**
-	 * Download Nodera packages ourselves so the SHA-256 can be verified before installation.
-	 */
+	/** Download a signed package ourselves and verify its size and SHA-256 before installation. */
 	public function secure_download( mixed $reply, string $package, mixed $upgrader, array $hook_extra ): mixed {
 		unset( $upgrader );
 		$plugin = isset( $hook_extra['plugin'] ) ? (string) $hook_extra['plugin'] : '';
@@ -119,9 +112,14 @@ final class UpdateClient {
 			return $response;
 		}
 		$code = (int) wp_remote_retrieve_response_code( $response );
-		if ( $code < 200 || $code >= 300 || ! file_exists( $temp ) ) {
+		$size = file_exists( $temp ) ? filesize( $temp ) : false;
+		if ( $code < 200 || $code >= 300 || false === $size ) {
 			@unlink( $temp );
 			return new WP_Error( 'nodera_update_download_failed', 'The signed Nodera package could not be downloaded.', array( 'status' => $code ) );
+		}
+		if ( $size <= 0 || $size > self::MAX_PACKAGE_BYTES ) {
+			@unlink( $temp );
+			return new WP_Error( 'nodera_update_package_size', 'The signed Nodera package is outside the allowed package size.', array( 'bytes' => $size ) );
 		}
 		$actual = hash_file( 'sha256', $temp );
 		if ( ! is_string( $actual ) || ! hash_equals( strtolower( (string) $manifest['sha256'] ), strtolower( $actual ) ) ) {
@@ -131,25 +129,19 @@ final class UpdateClient {
 		return $temp;
 	}
 
-	/**
-	 * Public, non-secret health status.
-	 */
+	/** Public, non-secret health status. */
 	public function public_status(): array {
 		$manifest = $this->configured() ? $this->manifest() : null;
 		return array(
-			'configured'        => $this->configured(),
-			'manifestVerified'  => is_array( $manifest ),
-			'availableVersion'  => is_array( $manifest ) ? (string) $manifest['version'] : '',
-			'currentVersion'    => NODERA_VERSION,
-			'contentFeatureGate'=> false,
+			'configured'         => $this->configured(),
+			'manifestVerified'   => is_array( $manifest ),
+			'availableVersion'   => is_array( $manifest ) ? (string) $manifest['version'] : '',
+			'currentVersion'     => NODERA_VERSION,
+			'contentFeatureGate' => false,
 		);
 	}
 
-	/**
-	 * Fetch and verify the signed update manifest.
-	 *
-	 * @return array|WP_Error
-	 */
+	/** @return array|WP_Error */
 	private function manifest(): array|WP_Error {
 		if ( null !== $this->manifest_cache ) {
 			return $this->manifest_cache;
@@ -178,8 +170,7 @@ final class UpdateClient {
 		if ( ! is_array( $data ) ) {
 			return new WP_Error( 'nodera_update_invalid_manifest', 'Nodera update manifest is not valid JSON.' );
 		}
-		$required = array( 'version', 'package', 'sha256', 'signature' );
-		foreach ( $required as $field ) {
+		foreach ( array( 'version', 'package', 'sha256', 'signature' ) as $field ) {
 			if ( ! isset( $data[ $field ] ) || ! is_string( $data[ $field ] ) || '' === trim( $data[ $field ] ) ) {
 				return new WP_Error( 'nodera_update_invalid_manifest', 'Nodera update manifest is missing a required field.', array( 'field' => $field ) );
 			}
@@ -193,8 +184,7 @@ final class UpdateClient {
 		if ( false === $signature || '' === $key || ! function_exists( 'openssl_verify' ) ) {
 			return new WP_Error( 'nodera_update_signature_unavailable', 'Nodera update signature verification is unavailable.' );
 		}
-		$verified = openssl_verify( $message, $signature, $key, OPENSSL_ALGO_SHA256 );
-		if ( 1 !== $verified ) {
+		if ( 1 !== openssl_verify( $message, $signature, $key, OPENSSL_ALGO_SHA256 ) ) {
 			return new WP_Error( 'nodera_update_signature_failed', 'Nodera update manifest signature verification failed.' );
 		}
 		$this->manifest_cache = $data;
