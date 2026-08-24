@@ -14,6 +14,9 @@ import { Review } from './Review';
 type DirectGenerationResponse = ValidationResponse & { patch: NoderaPatch };
 type Scope = { blocks: NoderaBlock[]; target: NoderaBlock[]; targetKind: NoderaTargetKind };
 type ExportAction = 'copy' | 'json' | 'prompt';
+type Conflict = { exportedFingerprint: string; currentFingerprint: string; reason: string };
+
+type Timing = { exportMs?: number; validateMs?: number };
 
 export function AiPanel(props: {
 	blocks: NoderaBlock[];
@@ -31,17 +34,23 @@ export function AiPanel(props: {
 	const [contractMode, setContractModeState] = useState<'focused' | 'expanded' | 'full'>('expanded');
 	const [targetMode, setTargetModeState] = useState<'block' | 'subtree'>('block');
 	const [exported, setExported] = useState<NoderaAiExport | null>(null);
+	const [baseline, setBaseline] = useState<NoderaBlock[]>([]);
 	const [patch, setPatch] = useState<NoderaPatch | null>(null);
 	const [validated, setValidated] = useState<ValidationResponse | null>(null);
 	const [generating, setGenerating] = useState(false);
 	const [exporting, setExporting] = useState(false);
+	const [conflict, setConflict] = useState<Conflict | null>(null);
+	const [timing, setTiming] = useState<Timing>({});
 	const [notice, setNotice] = useState<{ status: 'success' | 'error' | 'warning' | 'info'; message: string } | null>(null);
 	const provider = window.NoderaSettings?.aiProvider;
 
 	function invalidateExport() {
 		setExported(null);
+		setBaseline([]);
 		setPatch(null);
 		setValidated(null);
+		setConflict(null);
+		setTiming({});
 	}
 
 	function setTask(value: string) {
@@ -63,6 +72,7 @@ export function AiPanel(props: {
 		setResultState(value);
 		setPatch(null);
 		setValidated(null);
+		setConflict(null);
 	}
 
 	async function currentScope(): Promise<Scope> {
@@ -101,6 +111,7 @@ export function AiPanel(props: {
 	}
 
 	async function prepareExport(): Promise<{ session: NoderaAiExport; scope: Scope }> {
+		const started = performance.now();
 		const { context, scope } = await prepareContext();
 		const session = await apiFetch<NoderaAiExport>({
 			path: '/nodera/v1/ai/export',
@@ -113,6 +124,9 @@ export function AiPanel(props: {
 			},
 		});
 		setExported(session);
+		setBaseline(JSON.parse(JSON.stringify(stripBlocks(scope.target))) as NoderaBlock[]);
+		setConflict(null);
+		setTiming((current) => ({ ...current, exportMs: Math.round(performance.now() - started) }));
 		return { session, scope };
 	}
 
@@ -138,7 +152,7 @@ export function AiPanel(props: {
 				await navigator.clipboard.writeText(prompt);
 				setNotice({ status: 'success', message: __('Portable AI session copied. Paste it into any external AI and ask it to return nodera-patch/v1 JSON.', 'nodera') });
 			} else if (action === 'json') {
-				download(`nodera-${session.sessionId}.json`, JSON.stringify(session, null, 2), 'application/json');
+				download(`nodera-${session.sessionId}.nodera-ai.json`, JSON.stringify(session, null, 2), 'application/json');
 				setNotice({ status: 'success', message: __('Portable AI session JSON downloaded.', 'nodera') });
 			} else {
 				download(`nodera-${session.sessionId}-prompt.txt`, prompt, 'text/plain;charset=utf-8');
@@ -160,11 +174,28 @@ export function AiPanel(props: {
 		}
 	}
 
+	async function detectConflict(scope: Scope, candidateFingerprint: string): Promise<boolean> {
+		const currentFingerprint = await fingerprint(scope.target);
+		if (currentFingerprint === candidateFingerprint) {
+			setConflict(null);
+			return false;
+		}
+		setConflict({
+			exportedFingerprint: candidateFingerprint,
+			currentFingerprint,
+			reason: __('The Gutenberg target changed after the portable AI session was exported. Nodera will not auto-merge a stale AI patch.', 'nodera'),
+		});
+		setNotice({ status: 'warning', message: __('Conflict detected. Export a fresh session or discard the imported result.', 'nodera') });
+		return true;
+	}
+
 	async function validate() {
+		const started = performance.now();
 		try {
 			const parsed = normalizeAiResult(result);
 			assertMatchesExport(parsed);
 			const scope = await currentScope();
+			if (await detectConflict(scope, parsed.target.fingerprint)) return;
 			const response = await apiFetch<ValidationResponse>({
 				path: '/nodera/v1/ai/validate',
 				method: 'POST',
@@ -178,6 +209,7 @@ export function AiPanel(props: {
 			});
 			setPatch(parsed);
 			setValidated(response);
+			setTiming((current) => ({ ...current, validateMs: Math.round(performance.now() - started) }));
 			setNotice({ status: 'success', message: __('Imported AI result is valid. Review the diff and quality findings before Apply.', 'nodera') });
 		} catch (error) {
 			setPatch(null);
@@ -206,8 +238,10 @@ export function AiPanel(props: {
 		setNotice(null);
 		setPatch(null);
 		setValidated(null);
+		setConflict(null);
 		try {
 			const { context, scope } = await prepareContext();
+			setBaseline(JSON.parse(JSON.stringify(stripBlocks(scope.target))) as NoderaBlock[]);
 			const response = await apiFetch<DirectGenerationResponse>({
 				path: '/nodera/v1/ai/generate',
 				method: 'POST',
@@ -232,15 +266,22 @@ export function AiPanel(props: {
 	async function apply() {
 		if (!patch || !validated) return;
 		const scope = await currentScope();
-		if (await fingerprint(scope.target) !== patch.target.fingerprint) {
-			setNotice({ status: 'error', message: __('Target changed after export or validation. Export a fresh session and validate again.', 'nodera') });
-			return;
-		}
+		if (await detectConflict(scope, patch.target.fingerprint)) return;
 		applyPatch(patch, scope.blocks);
 		setNotice({ status: 'success', message: __('Applied to Gutenberg. Native Undo reverts it; Save/Update persists it.', 'nodera') });
 	}
 
+	function discardImported() {
+		setResultState('');
+		setPatch(null);
+		setValidated(null);
+		setConflict(null);
+		setNotice({ status: 'info', message: __('Imported AI result discarded. The Gutenberg document was not changed.', 'nodera') });
+	}
+
 	const hasInnerBlocks = Boolean(props.target[0]?.innerBlocks?.length);
+	const blockingQuality = Boolean(validated?.quality?.some((item) => ['error', 'critical'].includes(String(item.severity || '').toLowerCase())));
+	const importFileId = `nodera-ai-import-${props.targetKind}-${props.postId}`;
 
 	return <div className="nodera-panel">
 		<Notice status="info" isDismissible={false}>{__('No API key is required. Export this Gutenberg target, process it with any external AI, then import the returned nodera-patch/v1.', 'nodera')}</Notice>
@@ -262,20 +303,36 @@ export function AiPanel(props: {
 			<Button variant="secondary" onClick={() => exportSession('json')} disabled={exporting}>{__('Download Session JSON', 'nodera')}</Button>
 			<Button variant="tertiary" onClick={() => exportSession('prompt')} disabled={exporting}>{__('Download Prompt', 'nodera')}</Button>
 		</div>
-		{exported && <p className="nodera-session-id"><strong>{__('Session', 'nodera')}:</strong> <code>{exported.sessionId}</code></p>}
+		{exported && <div className="nodera-session-meta">
+			<p className="nodera-session-id"><strong>{__('Session', 'nodera')}:</strong> <code>{exported.sessionId}</code></p>
+			<p><strong>{__('Protocol', 'nodera')}:</strong> {exported.protocol?.version || window.NoderaSettings?.protocol?.version || '1.0'}{exported.integrity?.value ? <> · <strong>{__('Integrity', 'nodera')}:</strong> <code>{exported.integrity.value.slice(0, 16)}…</code></> : null}</p>
+			{timing.exportMs !== undefined && <p className="nodera-local-timing">{__('Local export preparation', 'nodera')}: {timing.exportMs} ms</p>}
+		</div>}
 
 		<hr />
 		<h3>{__('Import AI Result', 'nodera')}</h3>
 		<TextareaControl label={__('Paste nodera-patch/v1 JSON', 'nodera')} value={result} onChange={setResult} rows={9} />
-		<label className="nodera-file-import">
+		<label className="nodera-file-import" htmlFor={importFileId}>
 			<span>{__('Or upload AI result JSON', 'nodera')}</span>
-			<input type="file" accept="application/json,.json,text/plain" onChange={importFile} />
+			<input id={importFileId} type="file" accept="application/json,.json,.nodera-ai.json,text/plain" onChange={importFile} />
 		</label>
-		<Button variant="secondary" onClick={validate} disabled={!result.trim()}>{__('Validate & Preview', 'nodera')}</Button>
+		<Button variant="secondary" onClick={validate} disabled={!result.trim() || Boolean(conflict)}>{__('Validate & Preview', 'nodera')}</Button>
 
-		{notice && <Notice status={notice.status} isDismissible={false}>{notice.message}</Notice>}
-		{validated && <Review response={validated} />}
-		{validated && patch && <Button variant="primary" onClick={apply}>{__('Apply to Gutenberg', 'nodera')}</Button>}
+		{conflict && <div className="nodera-conflict" role="alert">
+			<Notice status="warning" isDismissible={false}>{conflict.reason}</Notice>
+			<p><strong>{__('Exported fingerprint', 'nodera')}:</strong> <code>{conflict.exportedFingerprint.slice(0, 20)}…</code></p>
+			<p><strong>{__('Current fingerprint', 'nodera')}:</strong> <code>{conflict.currentFingerprint.slice(0, 20)}…</code></p>
+			<div className="nodera-actions">
+				<Button variant="primary" onClick={() => exportSession('copy')} disabled={exporting}>{__('Export Fresh Session', 'nodera')}</Button>
+				<Button variant="secondary" onClick={discardImported}>{__('Discard Imported Result', 'nodera')}</Button>
+			</div>
+		</div>}
+
+		<div aria-live="polite" aria-atomic="true">{notice && <Notice status={notice.status} isDismissible={false}>{notice.message}</Notice>}</div>
+		{validated && <Review response={validated} baseline={baseline} />}
+		{timing.validateMs !== undefined && validated && <p className="nodera-local-timing">{__('Local validation round trip', 'nodera')}: {timing.validateMs} ms</p>}
+		{blockingQuality && <Notice status="error" isDismissible={false}>{__('Apply is blocked because deterministic quality checks reported an error-level finding.', 'nodera')}</Notice>}
+		{validated && patch && <Button variant="primary" onClick={apply} disabled={blockingQuality || Boolean(conflict)}>{__('Apply to Gutenberg', 'nodera')}</Button>}
 
 		<details className="nodera-direct-ai">
 			<summary>{__('Optional direct AI provider', 'nodera')}</summary>
