@@ -29,7 +29,11 @@ final class ContextSanitizer {
 				$out['context'][ $key ] = $this->blocks( $out['context'][ $key ] );
 			}
 		}
-		return $this->walk( $out, 0 );
+		$out = $this->walk( $out, 0 );
+		if ( isset( $out['visualFacts'] ) && is_array( $out['visualFacts'] ) ) {
+			$out['visualFacts'] = $this->sanitize_visual_urls( $out['visualFacts'], 0 );
+		}
+		return $out;
 	}
 
 	private function blocks( array $blocks ): array {
@@ -79,5 +83,47 @@ final class ContextSanitizer {
 			$out[ $key ] = $this->walk( $item, $depth + 1 );
 		}
 		return $out;
+	}
+
+	/**
+	 * Media URLs inside browser measurements are contextual hints only. Query strings
+	 * and fragments can contain signed-CDN tokens, so never include them in exports.
+	 */
+	private function sanitize_visual_urls( mixed $value, int $depth ): mixed {
+		if ( $depth > self::MAX_DEPTH ) {
+			return null;
+		}
+		if ( ! is_array( $value ) ) {
+			return $value;
+		}
+		$out = array();
+		$count = 0;
+		foreach ( $value as $key => $item ) {
+			if ( ++$count > 500 ) {
+				break;
+			}
+			$name = is_string( $key ) ? strtolower( $key ) : '';
+			if ( in_array( $name, array( 'src', 'currentSrc', 'poster' ), true ) && is_string( $item ) ) {
+				$out[ $key ] = $this->strip_url_credentials( $item );
+				continue;
+			}
+			$out[ $key ] = $this->sanitize_visual_urls( $item, $depth + 1 );
+		}
+		return $out;
+	}
+
+	private function strip_url_credentials( string $url ): string {
+		if ( ! preg_match( '#^https?://#i', $url ) ) {
+			return $url;
+		}
+		$parts = wp_parse_url( $url );
+		if ( ! is_array( $parts ) || empty( $parts['host'] ) ) {
+			return '';
+		}
+		$scheme = isset( $parts['scheme'] ) ? strtolower( (string) $parts['scheme'] ) : 'https';
+		$host   = strtolower( (string) $parts['host'] );
+		$port   = isset( $parts['port'] ) ? ':' . (int) $parts['port'] : '';
+		$path   = isset( $parts['path'] ) ? (string) $parts['path'] : '';
+		return $scheme . '://' . $host . $port . $path;
 	}
 }
