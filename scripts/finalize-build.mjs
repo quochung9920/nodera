@@ -20,7 +20,7 @@ for (const name of ['accordion-view', 'tabs-view']) {
 }
 
 for (const asset of ['visual-fidelity.js', 'visual-fidelity.css']) {
-	const source = path.join('src', 'runtime', asset);
+	const source = path.join('runtime-src', asset);
 	const destination = path.join(buildDir, asset);
 	if (!fs.existsSync(source)) throw new Error(`Visual fidelity source is missing ${source}.`);
 	fs.copyFileSync(source, destination);
