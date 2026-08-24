@@ -12,5 +12,5 @@ return array(
 		'wp-i18n',
 		'wp-plugins',
 	),
-	'version' => '0.1.0-alpha.4',
+	'version' => '0.1.0-alpha.5',
 );
