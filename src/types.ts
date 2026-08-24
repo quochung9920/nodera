@@ -34,7 +34,7 @@ declare global {
 	interface Window {
 		NoderaSettings?: {
 			version: string;
-			releaseStatus: string;
+			releaseStatus?: string;
 			wordpress: string;
 			restRoot: string;
 			nonce: string;
@@ -43,7 +43,7 @@ declare global {
 			dynamicMeta: string;
 			nativeResponsive: boolean;
 			nativePseudoStates: string[];
-			aiProvider: { configured: boolean; provider: string; model: string; source: string };
+			aiProvider: { configured: boolean; provider: string; model: string; source?: string };
 			settingsUrl: string;
 		};
 	}
