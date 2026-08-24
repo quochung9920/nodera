@@ -1,5 +1,5 @@
 import apiFetch from '@wordpress/api-fetch';
-import type { NoderaBlock } from '../types';
+import type { NoderaAiExport, NoderaBlock, NoderaTargetKind } from '../types';
 import { stripBlocks, fingerprint } from './fingerprint';
 import { captureVisualFacts } from './visual';
 import { flattenBlocks } from '../identity';
@@ -7,7 +7,7 @@ import { flattenBlocks } from '../identity';
 export async function buildAiContext(args: {
 	task: string;
 	target: NoderaBlock[];
-	targetKind: 'subtree' | 'page';
+	targetKind: NoderaTargetKind;
 	ancestors: NoderaBlock[];
 	siblings: NoderaBlock[];
 	postType: string;
@@ -16,7 +16,8 @@ export async function buildAiContext(args: {
 	contractMode: 'focused' | 'expanded' | 'full';
 	design: Record<string, unknown>;
 }) {
-	const stableIds = flattenBlocks(args.target).map((block) => block.attributes?.noderaId).filter((value): value is string => typeof value === 'string');
+	const editableBlocks = args.targetKind === 'block' ? args.target : flattenBlocks(args.target);
+	const stableIds = editableBlocks.map((block) => block.attributes?.noderaId).filter((value): value is string => typeof value === 'string');
 	const blockNames = flattenBlocks(args.target).map((block) => block.name);
 	const query = new URLSearchParams({ mode: args.contractMode, task: args.task, blocks: Array.from(new Set(blockNames)).join(',') });
 	const contracts = await apiFetch<Record<string, unknown>>({ path: `/nodera/v1/contracts?${query.toString()}` });
@@ -40,17 +41,31 @@ export async function buildAiContext(args: {
 	};
 }
 
+export function portableAiPrompt(session: NoderaAiExport): string {
+	return [
+		'You are editing a native WordPress 7.1+ Gutenberg document through Nodera.',
+		`Portable session: ${session.sessionId}.`,
+		'Read the attached nodera-ai-export/v1 package as temporary AI context only; Gutenberg post_content remains canonical.',
+		'Use only the full block contracts included in session.context. catalogIndex is discovery only.',
+		'Edit only target.stableIds and obey target.kind. Never escape the exported scope.',
+		'For target.kind=block, only update, replace, or remove that block; do not restructure descendants.',
+		'Do not invent attributes. Prefer native Core Gutenberg blocks, Block Supports, Global Styles, Block Bindings and the Style Engine.',
+		'For responsive styles use native style.@tablet and style.@mobile. For supported Button/Navigation Link pseudo states use style.:hover, style.:focus, style.:focus-visible and style.:active.',
+		'Use core/accordion and core/tabs families instead of legacy nodera/accordion or nodera/tabs.',
+		'Return ONLY one nodera-patch/v1 JSON object. No Markdown, HTML, Gutenberg comment markup, prose, or a full replacement page document.',
+		'Every newly authored block must include a unique valid noderaId.',
+		'',
+		JSON.stringify(session, null, 2),
+	].join('\n');
+}
+
+/** Backward-compatible raw-context prompt helper. Portable sessions should use portableAiPrompt(). */
 export function oneShotPrompt(context: Record<string, unknown>): string {
 	return [
 		'You are editing a native WordPress 7.1+ Gutenberg document through Nodera.',
-		'Use only full block contracts included in the context. catalogIndex is discovery only.',
-		'Do not invent attributes. Do not edit outside the editable target.',
-		'Return ONLY one nodera-patch/v1 JSON object. No Markdown, HTML, Gutenberg comment markup, or explanation.',
-		'Every newly authored block must include a unique valid noderaId.',
-		'Prefer Core Gutenberg blocks, Block Supports, Global Styles, Block Bindings and the Style Engine over Nodera-specific data or Custom CSS.',
-		'For responsive styles use native style.@tablet and style.@mobile. For supported Button/Navigation Link pseudo states use style.:hover, style.:focus, style.:focus-visible and style.:active.',
-		'Use core/accordion and core/tabs families instead of legacy nodera/accordion or nodera/tabs.',
-		'If the user supplied a reference image, use it as visual guidance while respecting contracts and scope.',
-		'', JSON.stringify(context, null, 2),
+		'Return ONLY one nodera-patch/v1 JSON object. Do not escape the editable target.',
+		'Prefer native Gutenberg/Core blocks and style states. Do not return a full replacement page document.',
+		'',
+		JSON.stringify(context, null, 2),
 	].join('\n');
 }
