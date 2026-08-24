@@ -1,3 +1,4 @@
+import { useBlockBindingsUtils } from '@wordpress/block-editor';
 import { Button, Notice, SelectControl, TextControl } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import { useEffect, useMemo, useState } from '@wordpress/element';
@@ -23,18 +24,15 @@ function bindingFor(source: SourceChoice, metaKey: string) {
 export function DynamicPanel(props: {
 	block: NoderaBlock | null;
 	metaValue: string;
-	updateBlock: (attributes: Record<string, unknown>) => void;
 	updateMeta: (value: string) => void;
 }) {
 	const [value, setValue] = useState(props.metaValue || '');
 	const [attribute, setAttribute] = useState('');
 	const [source, setSource] = useState<SourceChoice>('post-meta');
+	const { updateBlockBindings } = useBlockBindingsUtils(props.block?.clientId);
+	const supported = useMemo(() => props.block ? attributesByBlock[props.block.name] || [] : [], [props.block?.name]);
+	const activeAttribute = supported.includes(attribute) ? attribute : (supported[0] || '');
 	useEffect(() => setValue(props.metaValue || ''), [props.metaValue]);
-	const supported = useMemo(() => props.block ? attributesByBlock[props.block.name] || [] : [], [props.block]);
-	useEffect(() => {
-		if (!supported.length) setAttribute('');
-		else if (!supported.includes(attribute)) setAttribute(supported[0]);
-	}, [supported.join('|'), attribute]);
 
 	if (!props.block) return <p>{__('Select a block to connect native Block Bindings.', 'nodera')}</p>;
 	if (!supported.length) {
@@ -43,30 +41,23 @@ export function DynamicPanel(props: {
 
 	const metadata = (props.block.attributes?.metadata || {}) as Record<string, unknown>;
 	const bindings = ((metadata.bindings || {}) as Record<string, unknown>);
-	const current = attribute ? bindings[attribute] as { source?: string; args?: Record<string, string> } | undefined : undefined;
+	const current = activeAttribute ? bindings[activeAttribute] as { source?: string; args?: Record<string, string> } | undefined : undefined;
 	const metaKey = window.NoderaSettings?.dynamicMeta || 'nodera_dynamic_text';
 
 	function connect() {
-		if (!attribute) return;
-		props.updateBlock({
-			metadata: {
-				...metadata,
-				bindings: { ...bindings, [attribute]: bindingFor(source, metaKey) },
-			},
-		});
+		if (!activeAttribute) return;
+		updateBlockBindings({ [activeAttribute]: bindingFor(source, metaKey) });
 	}
 	function disconnect() {
-		if (!attribute) return;
-		const next = { ...bindings };
-		delete next[attribute];
-		props.updateBlock({ metadata: { ...metadata, bindings: next } });
+		if (!activeAttribute) return;
+		updateBlockBindings({ [activeAttribute]: undefined });
 	}
 
 	return <div className="nodera-panel">
-		<Notice status="success" isDismissible={false}>{__('Dynamic Data uses WordPress Block Bindings metadata directly; Nodera does not maintain a parallel dynamic-content engine.', 'nodera')}</Notice>
+		<Notice status="success" isDismissible={false}>{__('Dynamic Data uses the native Gutenberg Block Bindings utility. Nodera does not maintain a parallel dynamic-content engine.', 'nodera')}</Notice>
 		<SelectControl
 			label={__('Block attribute', 'nodera')}
-			value={attribute}
+			value={activeAttribute}
 			options={supported.map((name) => ({ label: name, value: name }))}
 			onChange={setAttribute}
 		/>
