@@ -41,7 +41,7 @@ final class Plugin {
 
 		$stable_ids->register();
 		$contracts->register();
-		// Legacy compiler remains read-compatible with alpha.4 content. New UI writes WordPress 7.1 native style states.
+		// Alpha.4 compatibility only. New responsive authoring uses WordPress 7.1 native style states.
 		$legacy_responsive->register();
 		$bindings->register();
 		$blocks->register();
@@ -59,7 +59,6 @@ final class Plugin {
 	wp.hooks.addFilter('blocks.registerBlockType','nodera/persistent-attributes',function(settings){
 		var attributes = Object.assign({}, settings.attributes || {});
 		attributes.noderaId = attributes.noderaId || { type: 'string' };
-		// Legacy alpha.4 attributes remain registered so old content can render and migrate safely.
 		attributes.noderaResponsive = attributes.noderaResponsive || { type: 'object' };
 		attributes.noderaStateStyles = attributes.noderaStateStyles || { type: 'object' };
 		attributes.noderaCustomCSS = attributes.noderaCustomCSS || { type: 'string' };
@@ -103,5 +102,32 @@ JS;
 			) . ';',
 			'before'
 		);
+
+		// Editor-only compatibility for alpha.2–alpha.4 saved content. These blocks are hidden from the inserter.
+		$legacy_blocks = <<<'JS'
+(function(wp){
+	if(!wp || !wp.blocks || !wp.element || !wp.components || !wp.blockEditor){ return; }
+	var h=wp.element.createElement, __=wp.i18n.__, c=wp.components, RichText=wp.blockEditor.RichText;
+	if(!wp.blocks.getBlockType('nodera/accordion')){
+		wp.blocks.registerBlockType('nodera/accordion',{
+			apiVersion:3,title:__('Nodera Accordion (Legacy)','nodera'),category:'design',icon:'menu-alt3',
+			attributes:{title:{type:'string',default:'Accordion title'},content:{type:'string',default:'Accordion content'}},
+			supports:{html:false,inserter:false,align:['wide','full'],spacing:{margin:true,padding:true}},
+			edit:function(props){return h('div',{className:'nodera-accordion-editor'},h(c.Notice,{status:'warning',isDismissible:false},__('Legacy block. Use Core Accordion for new content.','nodera')),h(c.TextControl,{label:__('Accordion title','nodera'),value:props.attributes.title||'',onChange:function(v){props.setAttributes({title:v});}}),h(RichText,{tagName:'div',value:props.attributes.content||'',onChange:function(v){props.setAttributes({content:v});}}));},
+			save:function(){return null;}
+		});
+	}
+	if(!wp.blocks.getBlockType('nodera/tabs')){
+		wp.blocks.registerBlockType('nodera/tabs',{
+			apiVersion:3,title:__('Nodera Tabs (Legacy)','nodera'),category:'design',icon:'index-card',
+			attributes:{items:{type:'array',default:[{label:'Tab one',content:'First tab content'},{label:'Tab two',content:'Second tab content'}]}},
+			supports:{html:false,inserter:false,align:['wide','full'],spacing:{margin:true,padding:true}},
+			edit:function(props){var items=Array.isArray(props.attributes.items)?props.attributes.items:[];function update(i,key,v){props.setAttributes({items:items.map(function(item,n){if(n!==i)return item;var next=Object.assign({},item);next[key]=v;return next;})});}return h('div',{className:'nodera-tabs-editor'},h(c.Notice,{status:'warning',isDismissible:false},__('Legacy block. Use Core Tabs for new content.','nodera')),items.map(function(item,i){return h('div',{key:i,className:'nodera-tab-editor'},h(c.TextControl,{label:__('Tab label','nodera'),value:item.label||'',onChange:function(v){update(i,'label',v);}}),h(RichText,{tagName:'div',value:item.content||'',onChange:function(v){update(i,'content',v);}}));}));},
+			save:function(){return null;}
+		});
+	}
+})(window.wp);
+JS;
+		wp_add_inline_script( 'nodera-editor', $legacy_blocks, 'after' );
 	}
 }
