@@ -13,6 +13,7 @@ use Nodera\AI\DiffEngine;
 use Nodera\AI\PatchValidator;
 use Nodera\AI\TargetFingerprint;
 use Nodera\Contracts\BlockContractRegistry;
+use Nodera\Gutenberg\StableBlockId;
 use Nodera\Security\RequestThrottle;
 use WP_Error;
 use WP_REST_Request;
@@ -171,13 +172,25 @@ final class AIRestController {
 		if ( 'nodera-ai-context/v1' !== ( $context['schema'] ?? null ) || ! is_array( $context['target'] ?? null ) ) {
 			return new WP_Error( 'nodera_ai_invalid_context', 'Portable AI workflows require nodera-ai-context/v1.', array( 'status' => 400 ) );
 		}
+		$kind = (string) ( $context['target']['kind'] ?? '' );
+		if ( ! in_array( $kind, array( 'block', 'subtree', 'selection', 'page' ), true ) ) {
+			return new WP_Error( 'nodera_ai_invalid_target_kind', 'AI context target kind is invalid.', array( 'status' => 400 ) );
+		}
 		$current_fingerprint = TargetFingerprint::hash( $blocks );
 		if ( ! is_string( $context['target']['fingerprint'] ?? null ) || ! hash_equals( $current_fingerprint, $context['target']['fingerprint'] ) ) {
 			return new WP_Error( 'nodera_ai_target_changed', 'Target changed before the AI session was prepared.', array( 'status' => 409 ) );
 		}
 		$context_ids = is_array( $context['target']['stableIds'] ?? null ) ? array_values( array_filter( $context['target']['stableIds'], 'is_string' ) ) : array();
-		$expected_ids = array_values( array_unique( $ids ) );
-		$actual_ids = array_values( array_unique( $context_ids ) );
+		if ( count( $context_ids ) !== count( array_unique( $context_ids ) ) || count( $ids ) !== count( array_unique( $ids ) ) ) {
+			return new WP_Error( 'nodera_ai_invalid_target_ids', 'AI context target contains duplicate stable IDs.', array( 'status' => 400 ) );
+		}
+		foreach ( array_merge( $context_ids, $ids ) as $id ) {
+			if ( ! StableBlockId::is_valid( $id ) ) {
+				return new WP_Error( 'nodera_ai_invalid_target_ids', 'AI context target contains an invalid stable ID.', array( 'status' => 400 ) );
+			}
+		}
+		$expected_ids = $ids;
+		$actual_ids = $context_ids;
 		sort( $expected_ids );
 		sort( $actual_ids );
 		if ( $expected_ids !== $actual_ids ) {
