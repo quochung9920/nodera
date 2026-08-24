@@ -2,8 +2,8 @@
 /**
  * Plugin Name: Nodera — AI-native WordPress Builder
  * Description: AI-native professional authoring for the native WordPress block editor.
- * Version: 0.1.0-alpha.4
- * Requires at least: 7.0
+ * Version: 0.1.0-alpha.5
+ * Requires at least: 7.1
  * Requires PHP: 8.1
  * Text Domain: nodera
  *
@@ -12,7 +12,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'NODERA_VERSION', '0.1.0-alpha.4' );
+define( 'NODERA_VERSION', '0.1.0-alpha.5' );
 define( 'NODERA_FILE', __FILE__ );
 define( 'NODERA_DIR', plugin_dir_path( __FILE__ ) );
 define( 'NODERA_URL', plugin_dir_url( __FILE__ ) );
@@ -28,7 +28,9 @@ if ( file_exists( $autoload ) ) {
 		'includes/AI/CandidateTree.php',
 		'includes/AI/DiffEngine.php',
 		'includes/AI/DesignQualityGate.php',
+		'includes/AI/ContextSanitizer.php',
 		'includes/AI/PatchValidator.php',
+		'includes/AI/ProviderManager.php',
 		'includes/Responsive/BreakpointRegistry.php',
 		'includes/Responsive/ResponsiveStyleCompiler.php',
 		'includes/Bindings/DynamicBindings.php',
@@ -45,7 +47,7 @@ if ( file_exists( $autoload ) ) {
 add_action(
 	'plugins_loaded',
 	static function (): void {
-		if ( version_compare( PHP_VERSION, '8.1', '<' ) || version_compare( get_bloginfo( 'version' ), '7.0', '<' ) ) {
+		if ( version_compare( PHP_VERSION, '8.1', '<' ) || version_compare( get_bloginfo( 'version' ), '7.1', '<' ) ) {
 			return;
 		}
 		\Nodera\Plugin::instance()->boot();
