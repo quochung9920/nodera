@@ -13,7 +13,8 @@
     "lint:css": "wp-scripts lint-style src/**/*.css blocks/**/*.css",
     "test:unit": "wp-scripts test-unit-js --runInBand",
     "test:e2e": "playwright test",
-    "check:quality": "npm run typecheck && npm run lint:js && npm run lint:css && npm run test:unit && npm run build",
+    "verify:runtime": "node scripts/verify-runtime.mjs",
+    "check:quality": "npm run typecheck && npm run lint:js && npm run lint:css && npm run test:unit && npm run build && npm run verify:runtime",
     "package": "node scripts/package.mjs",
     "verify:package": "node scripts/verify-package.mjs"
   },
