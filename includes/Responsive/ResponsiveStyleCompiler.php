@@ -1,6 +1,6 @@
 <?php
 /**
- * Frontend responsive/state/scoped CSS compiler.
+ * Legacy frontend responsive/state/scoped CSS compatibility compiler.
  *
  * @package Nodera
  */
@@ -10,7 +10,8 @@ namespace Nodera\Responsive;
 use Nodera\Gutenberg\StableBlockId;
 
 /**
- * Compiles bounded Nodera overrides into stable-ID scoped CSS.
+ * Compiles alpha.4 Nodera overrides into stable-ID scoped CSS.
+ * New WordPress 7.1+ authoring uses native Gutenberg style states instead.
  */
 final class ResponsiveStyleCompiler {
 	public const RESPONSIVE_ATTRIBUTE = 'noderaResponsive';
@@ -44,17 +45,11 @@ final class ResponsiveStyleCompiler {
 
 	public function __construct( private BreakpointRegistry $breakpoints ) {}
 
-	/**
-	 * Register block attributes and frontend CSS output.
-	 */
 	public function register(): void {
 		add_filter( 'register_block_type_args', array( $this, 'register_attributes' ), 11, 2 );
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_frontend_styles' ), 30 );
 	}
 
-	/**
-	 * Register persisted style extension attributes.
-	 */
 	public function register_attributes( array $args, string $name ): array {
 		unset( $name );
 		$args['attributes'] ??= array();
@@ -64,9 +59,6 @@ final class ResponsiveStyleCompiler {
 		return $args;
 	}
 
-	/**
-	 * Compile CSS for the queried singular document.
-	 */
 	public function enqueue_frontend_styles(): void {
 		if ( ! is_singular() ) {
 			return;
@@ -84,16 +76,12 @@ final class ResponsiveStyleCompiler {
 		wp_add_inline_style( 'nodera-runtime', $css );
 	}
 
-	/**
-	 * Compile a parsed Gutenberg block tree.
-	 */
 	public function compile( array $blocks ): string {
-		$base   = array();
 		$media  = array();
 		$states = array();
 		$custom = array();
-		$this->collect( $blocks, $base, $media, $states, $custom );
-		$css = implode( '', $base ) . implode( '', $states ) . implode( '', $custom );
+		$this->collect( $blocks, $media, $states, $custom );
+		$css = implode( '', $states ) . implode( '', $custom );
 		foreach ( $this->breakpoints->all() as $key => $config ) {
 			if ( empty( $media[ $key ] ) ) {
 				continue;
@@ -103,12 +91,12 @@ final class ResponsiveStyleCompiler {
 		return $css;
 	}
 
-	private function collect( array $blocks, array &$base, array &$media, array &$states, array &$custom ): void {
+	private function collect( array $blocks, array &$media, array &$states, array &$custom ): void {
 		foreach ( $blocks as $block ) {
 			$attrs = (array) ( $block['attrs'] ?? $block['attributes'] ?? array() );
 			$id    = $attrs[ StableBlockId::ATTRIBUTE ] ?? '';
 			if ( StableBlockId::is_valid( $id ) ) {
-				$selector = '[data-nodera-id="' . esc_attr( $id ) . '"]';
+				$selector   = '[data-nodera-id="' . esc_attr( $id ) . '"]';
 				$responsive = (array) ( $attrs[ self::RESPONSIVE_ATTRIBUTE ] ?? array() );
 				foreach ( $this->breakpoints->all() as $key => $config ) {
 					unset( $config );
@@ -117,7 +105,7 @@ final class ResponsiveStyleCompiler {
 						$media[ $key ][] = $selector . '{' . $declarations . '}';
 					}
 				}
-				foreach ( array( 'hover', 'focus', 'active' ) as $state ) {
+				foreach ( array( 'hover', 'focus', 'focus-visible', 'active' ) as $state ) {
 					$declarations = $this->declarations( (array) ( $attrs[ self::STATE_ATTRIBUTE ][ $state ] ?? array() ) );
 					if ( '' !== $declarations ) {
 						$states[] = $selector . ':' . $state . '{' . $declarations . '}';
@@ -128,13 +116,10 @@ final class ResponsiveStyleCompiler {
 					$custom[] = $scoped;
 				}
 			}
-			$this->collect( (array) ( $block['innerBlocks'] ?? array() ), $base, $media, $states, $custom );
+			$this->collect( (array) ( $block['innerBlocks'] ?? array() ), $media, $states, $custom );
 		}
 	}
 
-	/**
-	 * Compile a flat supported property map.
-	 */
 	public function declarations( array $properties ): string {
 		$out = array();
 		foreach ( $properties as $key => $value ) {
@@ -150,21 +135,22 @@ final class ResponsiveStyleCompiler {
 		return implode( '', $out );
 	}
 
-	/**
-	 * Compile a deliberately small scoped Custom CSS grammar.
-	 */
 	public function compile_custom_css( string $selector, string $css ): string {
 		$css = trim( $css );
 		if ( '' === $css || strlen( $css ) > 8000 || false !== stripos( $css, '@import' ) || false !== stripos( $css, 'url(' ) ) {
 			return '';
 		}
-		if ( preg_match_all( '/(&(?::(?:hover|focus|active))?)\s*\{([^{}]*)\}/', $css, $matches, PREG_SET_ORDER ) < 1 ) {
+		$pattern = '/(&(?::(?:hover|focus|focus-visible|active))?)\s*\{([^{}]*)\}/';
+		if ( preg_match_all( $pattern, $css, $matches, PREG_SET_ORDER ) < 1 ) {
+			return '';
+		}
+		if ( '' !== trim( (string) preg_replace( $pattern, '', $css ) ) ) {
 			return '';
 		}
 		$compiled = '';
 		foreach ( $matches as $match ) {
 			$declarations = trim( $match[2] );
-			if ( '' === $declarations || preg_match( '/[<>@]/', $declarations ) ) {
+			if ( '' === $declarations || preg_match( '/[<>@]/', $declarations ) || preg_match( '/(?:javascript\s*:|expression\s*\()/i', $declarations ) ) {
 				continue;
 			}
 			$compiled .= str_replace( '&', $selector, $match[1] ) . '{' . $declarations . '}';
