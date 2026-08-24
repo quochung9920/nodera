@@ -10,7 +10,14 @@ if (!plugin.includes(`Version: ${pkg.version}`) || !plugin.includes(`NODERA_VERS
 }
 if (!asset.includes(pkg.version)) throw new Error('Editor asset metadata version differs from package.json.');
 if (fs.existsSync('build/gutenberg-native.js')) throw new Error('Temporary Gutenberg-native bridge must not exist.');
-for (const file of ['includes/Security/RequestThrottle.php', 'uninstall.php']) {
+for (const file of [
+	'includes/Security/RequestThrottle.php',
+	'includes/Protocols/ProtocolRegistry.php',
+	'includes/Commercial/UpdateClient.php',
+	'includes/Compatibility/CompatibilityRegistry.php',
+	'includes/Migrations/MigrationManager.php',
+	'uninstall.php',
+]) {
 	if (!fs.existsSync(file)) throw new Error(`Production hardening file is missing: ${file}`);
 }
 for (const marker of [
@@ -22,6 +29,11 @@ for (const marker of [
 	'nodera-patch/v1',
 	'Copy for AI',
 	'Import AI Result',
+	'.nodera-ai.json',
+	'Conflict detected',
+	'Export Fresh Session',
+	'ACF field',
+	'WooCommerce product',
 	'@tablet',
 	'@mobile',
 	':focus-visible',
