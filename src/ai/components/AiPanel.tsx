@@ -12,12 +12,12 @@ import { applyPatch } from '../patch';
 import { Review } from './Review';
 
 type DirectGenerationResponse = ValidationResponse & { patch: NoderaPatch };
-
-type Scope = { blocks: NoderaBlock[]; target: NoderaBlock[] };
+type Scope = { blocks: NoderaBlock[]; target: NoderaBlock[]; targetKind: 'subtree' | 'page' };
 
 export function AiPanel(props: {
 	blocks: NoderaBlock[];
 	target: NoderaBlock[];
+	targetKind: 'subtree' | 'page';
 	ancestors: NoderaBlock[];
 	siblings: NoderaBlock[];
 	postId: number;
@@ -40,11 +40,10 @@ export function AiPanel(props: {
 		await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 		const store = select('core/block-editor') as any;
 		const blocks = (store.getBlocks?.() || props.blocks) as NoderaBlock[];
-		const wholePage = props.target.length === props.blocks.length;
-		const target = wholePage
+		const target = props.targetKind === 'page'
 			? blocks
 			: props.target.map((item) => item.clientId ? store.getBlock(item.clientId) : item).filter(Boolean) as NoderaBlock[];
-		return { blocks, target };
+		return { blocks, target, targetKind: props.targetKind };
 	}
 
 	function targetIds(scope: NoderaBlock[]) {
@@ -56,11 +55,12 @@ export function AiPanel(props: {
 		const context = await buildAiContext({
 			task,
 			target: scope.target,
+			targetKind: scope.targetKind,
 			ancestors: props.ancestors,
 			siblings: props.siblings,
 			postType: props.postType,
 			postTitle: props.postTitle,
-			mode: scope.target.length === scope.blocks.length ? 'create' : 'redesign',
+			mode: scope.targetKind === 'page' ? 'create' : 'redesign',
 			contractMode,
 			design: props.design,
 		});
@@ -124,7 +124,7 @@ export function AiPanel(props: {
 	}
 
 	return <div className="nodera-panel">
-		<p className="nodera-target"><strong>{__('Target', 'nodera')}:</strong> {props.target.length === props.blocks.length ? __('Whole page', 'nodera') : __('Selected Gutenberg subtree', 'nodera')}</p>
+		<p className="nodera-target"><strong>{__('Target', 'nodera')}:</strong> {props.targetKind === 'page' ? __('Whole page', 'nodera') : __('Selected Gutenberg subtree', 'nodera')}</p>
 		{provider?.configured
 			? <Notice status="success" isDismissible={false}>{__('Direct AI', 'nodera')}: {provider.provider}{provider.model ? ` · ${provider.model}` : ''}</Notice>
 			: <Notice status="warning" isDismissible={false}>{__('Direct AI is not configured.', 'nodera')} {window.NoderaSettings?.settingsUrl && <a href={window.NoderaSettings.settingsUrl}>{__('Open Nodera AI settings', 'nodera')}</a>}</Notice>}
