@@ -7,6 +7,7 @@ import { flattenBlocks } from '../identity';
 export async function buildAiContext(args: {
 	task: string;
 	target: NoderaBlock[];
+	targetKind: 'subtree' | 'page';
 	ancestors: NoderaBlock[];
 	siblings: NoderaBlock[];
 	postType: string;
@@ -22,7 +23,7 @@ export async function buildAiContext(args: {
 	return {
 		schema: 'nodera-ai-context/v1',
 		task: { request: args.task, mode: args.mode },
-		target: { kind: args.target.length === 1 ? 'subtree' : 'page', stableIds, fingerprint: await fingerprint(args.target) },
+		target: { kind: args.targetKind, stableIds, fingerprint: await fingerprint(args.target) },
 		document: { postType: args.postType, title: args.postTitle, scopeTree: stripBlocks(args.target) },
 		context: { ancestors: stripBlocks(args.ancestors), siblings: stripBlocks(args.siblings) },
 		contracts,
