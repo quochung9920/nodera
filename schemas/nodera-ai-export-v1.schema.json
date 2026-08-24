@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nodera.local/schemas/nodera-ai-export-v1.schema.json",
+  "title": "Nodera Portable AI Export v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "sessionId", "exportedAt", "noderaVersion", "wordpressVersion", "target", "task", "context", "outputRequirements"],
+  "properties": {
+    "schema": { "const": "nodera-ai-export/v1" },
+    "sessionId": { "type": "string", "pattern": "^nds_[A-Za-z0-9]+$" },
+    "exportedAt": { "type": "string", "format": "date-time" },
+    "noderaVersion": { "type": "string" },
+    "wordpressVersion": { "type": "string" },
+    "target": { "$ref": "#/$defs/target" },
+    "task": { "type": "object" },
+    "context": { "type": "object", "required": ["schema", "target", "document", "output"] },
+    "outputRequirements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "rules"],
+      "properties": {
+        "schema": { "const": "nodera-patch/v1" },
+        "rules": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "protocol": {
+      "type": "object",
+      "required": ["version", "contextSchema", "exportSchema", "patchSchema", "supportedScopes", "capabilities"],
+      "properties": {
+        "version": { "type": "string" },
+        "contextSchema": { "const": "nodera-ai-context/v1" },
+        "exportSchema": { "const": "nodera-ai-export/v1" },
+        "patchSchema": { "const": "nodera-patch/v1" },
+        "supportedScopes": { "type": "array", "items": { "enum": ["block", "subtree", "page"] } },
+        "capabilities": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "integrity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "value"],
+      "properties": {
+        "algorithm": { "const": "sha256" },
+        "value": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    }
+  },
+  "$defs": {
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "stableIds", "fingerprint"],
+      "properties": {
+        "kind": { "enum": ["block", "subtree", "selection", "page"] },
+        "stableIds": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^nd_[a-z0-9]{12,40}$" } },
+        "fingerprint": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    }
+  }
+}

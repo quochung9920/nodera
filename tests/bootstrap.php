@@ -8,6 +8,9 @@
 if ( ! defined( 'ABSPATH' ) ) define( 'ABSPATH', __DIR__ . '/fixtures/wordpress/' );
 if ( ! function_exists( 'wp_json_encode' ) ) { function wp_json_encode( mixed $value, int $flags = 0 ): string|false { return json_encode( $value, $flags ); } }
 if ( ! function_exists( 'apply_filters' ) ) { function apply_filters( string $hook_name, mixed $value ): mixed { unset( $hook_name ); return $value; } }
+if ( ! function_exists( 'do_action' ) ) { function do_action( string $hook_name, mixed ...$args ): void { unset( $hook_name, $args ); } }
+if ( ! function_exists( 'did_action' ) ) { function did_action( string $hook_name ): int { return 'init' === $hook_name ? 1 : 0; } }
+if ( ! function_exists( 'add_action' ) ) { function add_action( string $hook_name, mixed $callback, int $priority = 10, int $accepted_args = 1 ): bool { unset( $hook_name, $callback, $priority, $accepted_args ); return true; } }
 if ( ! function_exists( 'wp_strip_all_tags' ) ) { function wp_strip_all_tags( string $value ): string { return strip_tags( $value ); } }
 if ( ! function_exists( 'esc_attr' ) ) { function esc_attr( string $value ): string { return htmlspecialchars( $value, ENT_QUOTES ); } }
 if ( ! function_exists( 'get_bloginfo' ) ) { function get_bloginfo( string $show = '' ): string { unset( $show ); return '7.1'; } }
@@ -59,5 +62,6 @@ require_once dirname( __DIR__ ) . '/includes/AI/DiffEngine.php';
 require_once dirname( __DIR__ ) . '/includes/AI/DesignQualityGate.php';
 require_once dirname( __DIR__ ) . '/includes/AI/ContextSanitizer.php';
 require_once dirname( __DIR__ ) . '/includes/AI/PatchValidator.php';
+require_once dirname( __DIR__ ) . '/includes/Protocols/ProtocolRegistry.php';
 require_once dirname( __DIR__ ) . '/includes/Responsive/BreakpointRegistry.php';
 require_once dirname( __DIR__ ) . '/includes/Responsive/ResponsiveStyleCompiler.php';

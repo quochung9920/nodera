@@ -5,7 +5,7 @@ import archiver from 'archiver';
 
 const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
 const version = pkg.version;
-const required = ['nodera.php', 'uninstall.php', 'includes', 'build', 'blocks', 'readme.txt', 'README.md', 'LICENSE'];
+const required = ['nodera.php', 'uninstall.php', 'includes', 'build', 'blocks', 'schemas', 'readme.txt', 'README.md', 'LICENSE'];
 for (const entry of required) {
 	if (!fs.existsSync(entry)) throw new Error(`Missing required package entry: ${entry}`);
 }

@@ -23,10 +23,28 @@ for (const runtime of [
 	'build/tabs-view.asset.php',
 	'blocks/accordion/block.json',
 	'blocks/tabs/block.json',
+	'includes/Protocols/ProtocolRegistry.php',
+	'includes/Protocols/ProtocolController.php',
+	'includes/Commercial/UpdateClient.php',
+	'includes/Commercial/EntitlementManager.php',
+	'includes/Compatibility/CompatibilityRegistry.php',
+	'includes/Migrations/MigrationManager.php',
+	'schemas/nodera-ai-context-v1.schema.json',
+	'schemas/nodera-ai-export-v1.schema.json',
+	'schemas/nodera-patch-v1.schema.json',
+	'schemas/nodera-update-manifest-v1.schema.json',
 	'uninstall.php',
 	'LICENSE',
 ]) {
 	if (!fs.existsSync(runtime)) throw new Error(`Runtime/package file missing before packaging: ${runtime}`);
+}
+for (const schemaFile of [
+	'schemas/nodera-ai-context-v1.schema.json',
+	'schemas/nodera-ai-export-v1.schema.json',
+	'schemas/nodera-patch-v1.schema.json',
+	'schemas/nodera-update-manifest-v1.schema.json',
+]) {
+	JSON.parse(fs.readFileSync(schemaFile, 'utf8'));
 }
 for (const asset of ['build/editor.asset.php', 'build/accordion-view.asset.php', 'build/tabs-view.asset.php']) {
 	if (!fs.readFileSync(asset, 'utf8').includes(`'version' => '${pkg.version}'`)) {

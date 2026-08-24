@@ -1,6 +1,6 @@
 {
   "name": "nodera",
-  "version": "0.1.0-rc.2",
+  "version": "0.1.0-rc.3",
   "private": true,
   "description": "Nodera — AI-native WordPress Builder",
   "engines": {
@@ -17,31 +17,34 @@
     "lint:css": "wp-scripts lint-style src/**/*.css blocks/**/*.css",
     "test:unit": "wp-scripts test-unit-js --runInBand",
     "test:e2e": "playwright test",
+    "verify:deps": "node scripts/verify-dependencies.mjs",
+    "verify:lockfiles": "node scripts/verify-lockfiles.mjs",
     "verify:runtime": "node scripts/verify-runtime.mjs",
-    "check:quality": "npm run typecheck && npm run lint:js && npm run lint:css && npm run test:unit && npm run build && npm run verify:runtime",
+    "check:quality": "npm run verify:deps && npm run typecheck && npm run lint:js && npm run lint:css && npm run test:unit && npm run build && npm run verify:runtime",
     "package": "node scripts/package.mjs",
     "verify:package": "node scripts/verify-package.mjs",
-    "release:verify": "npm run check:quality && npm run package && npm run verify:package"
+    "release:verify": "npm run check:quality && npm run package && npm run verify:package",
+    "release:stable:verify": "npm run verify:lockfiles && npm run release:verify"
   },
   "devDependencies": {
-    "@playwright/test": "latest",
-    "@types/node": "latest",
-    "@types/react": "latest",
-    "@wordpress/scripts": "latest",
-    "archiver": "latest",
-    "typescript": "latest"
+    "@playwright/test": "1.62.1",
+    "@types/node": "26.2.0",
+    "@types/react": "19.2.18",
+    "@wordpress/scripts": "34.1.0",
+    "archiver": "8.0.0",
+    "typescript": "6.0.3"
   },
   "dependencies": {
-    "@wordpress/api-fetch": "latest",
-    "@wordpress/block-editor": "latest",
-    "@wordpress/blocks": "latest",
-    "@wordpress/components": "latest",
-    "@wordpress/data": "latest",
-    "@wordpress/editor": "latest",
-    "@wordpress/element": "latest",
-    "@wordpress/hooks": "latest",
-    "@wordpress/i18n": "latest",
-    "@wordpress/interactivity": "latest",
-    "@wordpress/plugins": "latest"
+    "@wordpress/api-fetch": "7.53.0",
+    "@wordpress/block-editor": "16.2.0",
+    "@wordpress/blocks": "15.26.0",
+    "@wordpress/components": "39.0.0",
+    "@wordpress/data": "10.52.0",
+    "@wordpress/editor": "14.53.0",
+    "@wordpress/element": "8.5.0",
+    "@wordpress/hooks": "4.53.0",
+    "@wordpress/i18n": "6.26.0",
+    "@wordpress/interactivity": "6.51.0",
+    "@wordpress/plugins": "7.53.0"
   }
 }

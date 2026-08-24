@@ -1,56 +1,66 @@
 # Production readiness
 
-Nodera `0.1.0-rc.2` is a production-oriented release candidate, not a production-certified stable release.
+Nodera `0.1.0-rc.3` is a commercial-hardening release candidate, not a production-certified stable release.
 
 ## Runtime gates
 
-A production approval requires all of the following evidence on a clean WordPress 7.1+ site:
+A stable production approval requires evidence on clean WordPress 7.1+ sites that:
 
-- plugin activation succeeds with PHP 8.1+ and all committed runtime assets present;
-- Gutenberg loads with Nodera controls and no new console/PHP errors;
-- selected-block, selected-subtree, one-block-page and whole-page AI scopes remain isolated correctly;
-- block-only export does not materialize stable IDs for untouched descendants;
-- `nodera-ai-export/v1` is generated only after live fingerprint/scope checks and server-side context sanitization;
-- Copy for AI, Download Session JSON and Download Prompt work without configuring an AI provider/API key;
-- pasted and uploaded `nodera-patch/v1` results pass server validation → diff/quality review → explicit Apply → native Undo/Redo → Save → Reload;
-- stale fingerprints, wrong-session targets, scope escape, unsafe URLs/CSS, invalid attributes/blocks and duplicate IDs are rejected;
-- responsive `@tablet` / `@mobile` and supported pseudo states persist through Save/Reload and render on the frontend;
-- Block Bindings and Global Styles persist through native WordPress APIs;
-- optional provider credentials never appear in portable exports, editor JS, REST diagnostics, post content or browser logs;
-- a 50–100 block page shows no request loop, mass stable-ID write or material typing/selection regression.
+- activation succeeds on PHP 8.1–8.4 with all committed runtime assets;
+- Gutenberg loads with no new console/PHP errors;
+- block, subtree, one-block-page and whole-page scopes remain isolated;
+- block-only selection/export never materializes stable IDs for untouched descendants;
+- portable export works without any AI API key and returns protocol 1.0 plus SHA-256 integrity metadata;
+- export context is server-sanitized and contains no credentials/nonces/cookies/private secret-like fields;
+- at least two different external AI clients can return conforming `nodera-patch/v1` for the same protocol;
+- imported patches pass exact-session/fingerprint/scope/contract/URL/CSS/candidate validation before Diff/Preview;
+- stale sessions show explicit conflict resolution and are never auto-merged;
+- deterministic error/critical quality findings block Apply;
+- Apply → native Undo/Redo → Save → Reload → frontend passes;
+- `@tablet`, `@mobile`, supported pseudo states, Block Bindings and Global Styles persist through native WordPress APIs;
+- ACF/WooCommerce adapters are tested when those integrations are claimed as supported;
+- a 100-block page shows no request loop, mass stable-ID mutation or material typing/selection regression.
 
-## Portable AI security gates
+## Release engineering gates
 
-- exported page/block context is passed through `ContextSanitizer` before it leaves WordPress;
-- the export endpoint capability-checks `edit_post`, bounds request size, verifies current fingerprint and requires exact editable stable IDs;
-- exported session IDs are trace identifiers only and do not become a second state/history/document store;
-- `target.kind=block` exports include only the selected root stable ID as editable scope;
-- imported AI JSON is untrusted and cannot Apply until `PatchValidator`, candidate construction, semantic diff and quality review succeed;
-- Apply never auto-saves and remains reversible through native Gutenberg history.
+Before promotion beyond RC:
 
-## Release gates
+- PHP syntax/PHPUnit pass on 8.1, 8.2, 8.3 and 8.4;
+- PHPCS, TypeScript, JS/CSS lint and JS unit tests pass;
+- exact direct dependency pin verification passes;
+- generated/reviewed `package-lock.json` and `composer.lock` are committed;
+- `npm run release:stable:verify` passes from a clean checkout;
+- clean build passes runtime verification with no source/runtime drift;
+- package ZIP + SHA-256 verification passes;
+- the packaged ZIP, not a source checkout, passes clean-install browser acceptance;
+- Chromium, Firefox and WebKit acceptance passes;
+- compatibility targets in `COMPATIBILITY_MATRIX.md` are updated from `NOT YET VERIFIED` only with real evidence;
+- keyboard and manual screen-reader review passes;
+- GitHub `main` branch protection requires reviewed PRs and successful release checks.
 
-Before promoting an RC beyond release-candidate status:
+## Commercial delivery gates
 
-- PHP syntax, PHPUnit and PHPCS pass;
-- TypeScript, JS/CSS lint and JS unit tests pass;
-- a clean `npm run build` passes `npm run verify:runtime`;
-- `npm run package` creates both the ZIP and SHA-256 checksum;
-- `npm run verify:package` verifies version synchronization, runtime files and checksum;
-- the packaged ZIP is installed into a clean WordPress site and the runtime gates above pass;
-- portable sessions are tested with at least two different external AI clients/models to confirm protocol portability;
-- supported themes/plugins are smoke-tested and accessibility receives a manual keyboard/screen-reader review.
+Before selling as stable self-service software:
 
-## Security hardening inherited from rc.1
+- onboarding/readiness UX is verified on a clean install;
+- signed update manifest and package checksum flows are exercised against the real update service;
+- entitlement absence/expiry is verified not to gate existing Gutenberg content or editor access;
+- previous signed version remains available for controlled rollback;
+- upgrade and rollback leave Gutenberg `post_content` intact;
+- support diagnostics expose no credentials or page content.
 
-- activation/runtime guards reject unsupported WordPress/PHP versions and missing production assets;
-- optional direct AI generation is capability-checked, fingerprint/scope validated and rate-limited per user/post;
-- provider requests use WordPress safe remote HTTP, no redirects, bounded timeouts and a response-size limit;
-- custom compatible endpoints must pass public HTTPS safe-URL validation;
-- production credentials may be supplied from `wp-config.php` constants and remain server-side;
-- uninstall removes provider configuration stored in WordPress options;
-- all AI output remains untrusted until `nodera-patch/v1` validation succeeds.
+## RC3 hardening already implemented
 
-## Remaining certification work
+- protocol 1.0 registry, JSON Schemas and export integrity metadata;
+- stale-session conflict UI and Before/After responsive preview;
+- third-party Block Contract adapter API with default-deny AI authoring;
+- optional ACF scalar and WooCommerce native Block Bindings;
+- compatibility/support diagnostics and onboarding;
+- idempotent no-`post_content` migration tracking;
+- optional non-gating commercial entitlement and signed update client;
+- exact direct dependency pins plus an explicit lockfile gate;
+- PHP 8.1–8.4 CI definitions and Chromium/Firefox/WebKit E2E configuration.
 
-The repository still needs a fully green real-browser acceptance run on a maintained WordPress 7.1 environment and broad compatibility/accessibility evidence before it should be described as production-certified. Dependency lockfiles are also recommended before a long-lived stable release so developer rebuilds are fully reproducible.
+## Current external blockers
+
+Stable certification still requires real WordPress/browser/theme/plugin/screen-reader evidence, trustworthy green CI execution and generated/reviewed dependency lockfiles. These must not be represented as PASS until actually completed.

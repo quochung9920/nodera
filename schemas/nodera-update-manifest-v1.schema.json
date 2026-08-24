@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nodera.local/schemas/nodera-update-manifest-v1.schema.json",
+  "title": "Nodera Signed Update Manifest v1",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["version", "package", "sha256", "signature"],
+  "properties": {
+    "version": { "type": "string", "minLength": 1 },
+    "package": { "type": "string", "format": "uri", "pattern": "^https://" },
+    "sha256": { "type": "string", "pattern": "^[A-Fa-f0-9]{64}$" },
+    "signature": { "type": "string", "minLength": 16 },
+    "requires": { "type": "string" },
+    "tested": { "type": "string" },
+    "requires_php": { "type": "string" },
+    "details_url": { "type": "string", "format": "uri" },
+    "changelog": { "type": "string" }
+  }
+}

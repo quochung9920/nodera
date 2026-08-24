@@ -42,10 +42,12 @@ export async function buildAiContext(args: {
 }
 
 export function portableAiPrompt(session: NoderaAiExport): string {
+	const protocolVersion = session.protocol?.version || window.NoderaSettings?.protocol?.version || '1.0';
 	return [
 		'You are editing a native WordPress 7.1+ Gutenberg document through Nodera.',
-		`Portable session: ${session.sessionId}.`,
-		'Read the attached nodera-ai-export/v1 package as temporary AI context only; Gutenberg post_content remains canonical.',
+		`Portable session: ${session.sessionId}. Protocol: ${protocolVersion}.`,
+		'Read the nodera-ai-export/v1 package as temporary AI context only; Gutenberg post_content remains canonical.',
+		'Treat session.integrity as transport metadata. Do not modify the session, fingerprint, stableIds, protocol, or integrity fields.',
 		'Use only the full block contracts included in session.context. catalogIndex is discovery only.',
 		'Edit only target.stableIds and obey target.kind. Never escape the exported scope.',
 		'For target.kind=block, only update, replace, or remove that block; do not restructure descendants.',

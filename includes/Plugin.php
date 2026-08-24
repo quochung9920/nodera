@@ -7,11 +7,18 @@
 
 namespace Nodera;
 
+use Nodera\Admin\Onboarding;
 use Nodera\AI\ProviderManager;
 use Nodera\Bindings\DynamicBindings;
 use Nodera\Blocks\BlockRegistry;
+use Nodera\Commercial\EntitlementManager;
+use Nodera\Commercial\UpdateClient;
+use Nodera\Compatibility\CompatibilityRegistry;
 use Nodera\Contracts\BlockContractRegistry;
 use Nodera\Gutenberg\StableBlockId;
+use Nodera\Migrations\MigrationManager;
+use Nodera\Protocols\ProtocolController;
+use Nodera\Protocols\ProtocolRegistry;
 use Nodera\Responsive\BreakpointRegistry;
 use Nodera\Responsive\ResponsiveStyleCompiler;
 use Nodera\Rest\AIRestController;
@@ -31,13 +38,19 @@ final class Plugin {
 		}
 		$this->booted = true;
 
-		$stable_ids  = new StableBlockId();
-		$contracts   = new BlockContractRegistry();
-		$breakpoints = new BreakpointRegistry();
+		$stable_ids    = new StableBlockId();
+		$contracts     = new BlockContractRegistry();
+		$breakpoints   = new BreakpointRegistry();
 		$legacy_responsive = new ResponsiveStyleCompiler( $breakpoints );
-		$bindings    = new DynamicBindings();
-		$blocks      = new BlockRegistry();
-		$providers   = new ProviderManager( $contracts );
+		$bindings      = new DynamicBindings();
+		$blocks        = new BlockRegistry();
+		$providers     = new ProviderManager( $contracts );
+		$protocols     = new ProtocolRegistry();
+		$compatibility = new CompatibilityRegistry();
+		$migrations    = new MigrationManager();
+		$entitlement   = new EntitlementManager();
+		$updates       = new UpdateClient( $entitlement );
+		$onboarding    = new Onboarding( $compatibility, $protocols, $entitlement );
 
 		$stable_ids->register();
 		$contracts->register();
@@ -46,8 +59,13 @@ final class Plugin {
 		$bindings->register();
 		$blocks->register();
 		$providers->register();
+		$migrations->register();
+		$entitlement->register();
+		$updates->register();
+		$onboarding->register();
+		( new ProtocolController( $protocols ) )->register();
 		( new AIRestController( $contracts ) )->register();
-		( new DiagnosticsController( $contracts, $breakpoints ) )->register();
+		( new DiagnosticsController( $contracts, $breakpoints, $protocols, $compatibility, $migrations, $bindings, $entitlement, $updates ) )->register();
 
 		add_action( 'enqueue_block_editor_assets', array( $this, 'enqueue_editor' ) );
 	}
@@ -81,23 +99,30 @@ JS;
 		if ( file_exists( NODERA_DIR . 'build/editor.css' ) ) {
 			wp_enqueue_style( 'nodera-editor', NODERA_URL . 'build/editor.css', array( 'wp-components' ), $version );
 		}
-		$theme = wp_get_theme();
-		$providers = new ProviderManager( new BlockContractRegistry() );
+		$theme       = wp_get_theme();
+		$providers   = new ProviderManager( new BlockContractRegistry() );
+		$bindings    = new DynamicBindings();
+		$protocols   = new ProtocolRegistry();
 		wp_add_inline_script(
 			'nodera-editor',
 			'window.NoderaSettings=' . wp_json_encode(
 				array(
-					'version'            => NODERA_VERSION,
-					'wordpress'          => get_bloginfo( 'version' ),
-					'restRoot'           => esc_url_raw( rest_url( 'nodera/v1/' ) ),
-					'nonce'              => wp_create_nonce( 'wp_rest' ),
-					'theme'              => $theme->get_stylesheet(),
-					'breakpoints'        => ( new BreakpointRegistry() )->all(),
-					'dynamicMeta'        => DynamicBindings::META_KEY,
-					'nativeResponsive'   => true,
-					'nativePseudoStates' => array( 'core/button', 'core/navigation-link' ),
-					'aiProvider'         => $providers->public_status(),
-					'settingsUrl'        => admin_url( 'options-general.php?page=nodera-ai' ),
+					'version'               => NODERA_VERSION,
+					'releaseStatus'         => defined( 'NODERA_RELEASE_STATUS' ) ? NODERA_RELEASE_STATUS : 'development',
+					'wordpress'             => get_bloginfo( 'version' ),
+					'restRoot'              => esc_url_raw( rest_url( 'nodera/v1/' ) ),
+					'nonce'                 => wp_create_nonce( 'wp_rest' ),
+					'theme'                 => $theme->get_stylesheet(),
+					'breakpoints'           => ( new BreakpointRegistry() )->all(),
+					'dynamicMeta'           => DynamicBindings::META_KEY,
+					'dynamicSources'        => $bindings->available_sources(),
+					'nativeResponsive'      => true,
+					'nativePseudoStates'    => array( 'core/button', 'core/navigation-link' ),
+					'aiProvider'            => $providers->public_status(),
+					'protocol'              => $protocols->descriptor(),
+					'settingsUrl'           => admin_url( 'options-general.php?page=nodera-ai' ),
+					'commercialSettingsUrl' => admin_url( 'options-general.php?page=nodera-commercial' ),
+					'readinessUrl'          => admin_url( 'tools.php?page=nodera-readiness' ),
 				)
 			) . ';',
 			'before'

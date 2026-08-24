@@ -24,6 +24,19 @@ export type NoderaPatch = {
 	operations: PatchOperation[];
 };
 
+export type NoderaProtocolDescriptor = {
+	name: string;
+	version: string;
+	contextSchema: 'nodera-ai-context/v1';
+	exportSchema: 'nodera-ai-export/v1';
+	patchSchema: 'nodera-patch/v1';
+	supportedScopes: NoderaTargetKind[];
+	maxOperations: number;
+	maxPatchBytes: number;
+	backwardCompatibleWith: string[];
+	capabilities: string[];
+};
+
 export type NoderaAiExport = {
 	schema: 'nodera-ai-export/v1';
 	sessionId: string;
@@ -37,11 +50,14 @@ export type NoderaAiExport = {
 		schema: 'nodera-patch/v1';
 		rules: string[];
 	};
+	protocol?: NoderaProtocolDescriptor;
+	integrity?: { algorithm: 'sha256'; value: string };
 };
 
 export type ValidationResponse = {
 	valid: boolean;
 	fingerprint: string;
+	summary?: { operationCount?: number };
 	candidate: NoderaBlock[];
 	diff: Array<Record<string, unknown>>;
 	quality: Array<Record<string, unknown>>;
@@ -58,10 +74,14 @@ declare global {
 			theme: string;
 			breakpoints: Record<string, { label: string; maxWidth: number }>;
 			dynamicMeta: string;
+			dynamicSources?: Array<{ id: string; label: string; available: boolean }>;
 			nativeResponsive: boolean;
 			nativePseudoStates: string[];
 			aiProvider: { configured: boolean; provider: string; model: string; source?: string };
+			protocol?: NoderaProtocolDescriptor;
 			settingsUrl: string;
+			commercialSettingsUrl?: string;
+			readinessUrl?: string;
 		};
 	}
 }
