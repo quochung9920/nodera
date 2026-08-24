@@ -2,9 +2,9 @@ import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
 
 const runtime = 'build/visual-fidelity.js';
-const source = 'src/runtime/visual-fidelity.js';
+const source = 'runtime-src/visual-fidelity.js';
 const runtimeCss = 'build/visual-fidelity.css';
-const sourceCss = 'src/runtime/visual-fidelity.css';
+const sourceCss = 'runtime-src/visual-fidelity.css';
 for (const file of [runtime, source, runtimeCss, sourceCss, 'includes/Rest/VisualContextController.php']) {
 	if (!fs.existsSync(file)) throw new Error(`Visual fidelity file missing: ${file}`);
 }
