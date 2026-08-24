@@ -1,6 +1,6 @@
 # Nodera portable AI protocol
 
-Nodera 0.1.0-rc.3 formalizes the provider-neutral transport contract used by Export → external AI → Import.
+Nodera 0.1.0-rc.4 uses the provider-neutral transport contract introduced in RC3 for Export → external AI → Import and adds backward-compatible Visual Fidelity 2.0 context inside the existing v1 open object fields.
 
 ## Version 1.0
 
@@ -14,9 +14,11 @@ The export endpoint stamps sanitized sessions with a protocol descriptor and a S
 
 ## Compatibility policy
 
-Protocol `1.x` keeps the three v1 schema identifiers stable. Additive capability metadata may be introduced without changing the schema identifier. Any incompatible target/operation/schema change requires a new `/v2` schema and explicit migration/negotiation support.
+Protocol `1.x` keeps the three v1 schema identifiers stable. Additive capability/context metadata may be introduced without changing the schema identifier where the existing schema explicitly permits an object. RC4 Visual Fidelity therefore enriches `task`, `design`, `visualFacts` and `environment` without changing the canonical v1 target or patch operation model.
 
-Nodera must never silently reinterpret an unknown schema. Unknown protocol/schema versions are rejected with deterministic Nodera error codes.
+Any incompatible target/operation/schema change requires a new `/v2` schema and explicit migration/negotiation support. Nodera must never silently reinterpret an unknown schema. Unknown protocol/schema versions are rejected with deterministic Nodera error codes.
+
+Visual bundle files (`prompt.txt`, PNG/SVG captures, reference images and visual manifests) are companion transport artifacts. They are not a new page schema and never replace the v1 session target/fingerprint or `nodera-patch/v1` result contract.
 
 ## Scope rules
 
@@ -30,9 +32,11 @@ Portable sessions are temporary transport context. They are not persisted as a s
 
 External AI output is untrusted even when the export integrity value matches. Import still requires target fingerprint equality, exact editable stable IDs, registered block contracts, attribute and relationship validation, URL/CSS restrictions, candidate construction, semantic diff, quality review and explicit Apply.
 
+Visual facts, screenshots, change-policy hints, QA issues and user-selected design references provide context only. They never widen editable stable IDs or authorize operations.
+
 ## Error behavior
 
-Clients should treat HTTP 409 errors as stale/mismatched session conflicts and re-export instead of auto-merging. HTTP 400 indicates invalid schema/content. HTTP 403 indicates scope/capability violation. HTTP 413 indicates bounded payload limits.
+Clients should treat HTTP 409 errors as stale/mismatched session conflicts and re-export instead of auto-merging. HTTP 400 indicates invalid schema/content. HTTP 403 indicates scope/capability violation. HTTP 413 indicates bounded payload limits. RC4 permits a larger but still bounded export request so three native device-preview measurements can be sanitized server-side.
 
 ## Extension points
 
