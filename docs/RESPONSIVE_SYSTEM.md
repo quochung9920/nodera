@@ -1,10 +1,22 @@
 # Responsive system
 
-Base/desktop values stay in native Gutenberg block supports and attributes. Nodera stores only responsive overrides in `noderaResponsive`.
+Nodera treats Gutenberg's Style Engine as authoritative.
 
-Initial breakpoints:
+## WordPress 7.1+
 
-- Tablet: max-width 1024px
-- Mobile: max-width 767px
+Base/Desktop values stay in normal Gutenberg block supports. Responsive overrides are written directly into the native block `style` attribute:
 
-The registry is filterable through `nodera_breakpoints`. Supported overrides include spacing, dimensions, font size/line height and common flex layout values. The frontend compiler emits consolidated media-query CSS scoped to `data-nodera-id`. Unsupported or malformed values are ignored rather than emitted as arbitrary CSS.
+- `style.@tablet`
+- `style.@mobile`
+
+WordPress owns editor rendering, frontend CSS generation and `theme.json` viewport configuration. Nodera surfaces a professional inspector UI over those native values rather than running a second responsive engine.
+
+Default WordPress 7.1 viewports are treated as Mobile ≤480px and Tablet ≤782px unless the active theme changes `settings.viewport`.
+
+## Legacy compatibility
+
+Alpha.4 content can contain `noderaResponsive`. The legacy `ResponsiveStyleCompiler` remains registered only so that existing content continues to render on older WordPress installs and during migration. Its filterable breakpoints remain Tablet 1024px / Mobile 767px because changing them would alter existing alpha.4 pages.
+
+On WordPress 7.1+, Nodera can migrate common alpha.4 spacing, dimensions and typography overrides into the native `style.@tablet` / `style.@mobile` tree. Legacy flex/layout values without a proven native mapping remain in the compatibility layer rather than being silently rewritten.
+
+The long-term rule is simple: when Gutenberg owns a responsive capability, Nodera writes the Gutenberg representation and does not duplicate it.
