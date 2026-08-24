@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Nodera — AI-native WordPress Builder
  * Description: AI-native professional authoring for the native WordPress block editor.
- * Version: 0.1.0-rc.1
+ * Version: 0.1.0-rc.2
  * Requires at least: 7.1
  * Requires PHP: 8.1
  * Text Domain: nodera
@@ -12,7 +12,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'NODERA_VERSION', '0.1.0-rc.1' );
+define( 'NODERA_VERSION', '0.1.0-rc.2' );
 define( 'NODERA_RELEASE_STATUS', 'release-candidate' );
 define( 'NODERA_MIN_WP', '7.1' );
 define( 'NODERA_MIN_PHP', '8.1' );

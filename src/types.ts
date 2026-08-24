@@ -5,6 +5,8 @@ export type NoderaBlock = {
 	innerBlocks: NoderaBlock[];
 };
 
+export type NoderaTargetKind = 'block' | 'subtree' | 'selection' | 'page';
+
 export type PatchOperation = {
 	op: string;
 	stableId?: string;
@@ -18,8 +20,23 @@ export type PatchOperation = {
 
 export type NoderaPatch = {
 	schema: 'nodera-patch/v1';
-	target: { kind: string; stableIds: string[]; fingerprint: string };
+	target: { kind: NoderaTargetKind; stableIds: string[]; fingerprint: string };
 	operations: PatchOperation[];
+};
+
+export type NoderaAiExport = {
+	schema: 'nodera-ai-export/v1';
+	sessionId: string;
+	exportedAt: string;
+	noderaVersion: string;
+	wordpressVersion: string;
+	target: NoderaPatch['target'];
+	task: Record<string, unknown>;
+	context: Record<string, any>;
+	outputRequirements: {
+		schema: 'nodera-patch/v1';
+		rules: string[];
+	};
 };
 
 export type ValidationResponse = {

@@ -44,6 +44,12 @@ final class DiagnosticsController {
 				'theme'               => wp_get_theme()->get_stylesheet(),
 				'registeredBlocks'    => count( $catalog ),
 				'aiAuthorableBlocks'  => count( array_filter( $catalog, static fn( array $item ) => ! empty( $item['aiAuthorable'] ) ) ),
+				'portableAi'          => array(
+					'enabled'      => true,
+					'exportSchema' => 'nodera-ai-export/v1',
+					'patchSchema'  => 'nodera-patch/v1',
+					'apiKeyRequired' => false,
+				),
 				'breakpoints'         => $this->breakpoints->all(),
 				'blockBindingsApi'    => function_exists( 'register_block_bindings_source' ),
 				'interactivityApi'    => function_exists( 'wp_interactivity_state' ) || function_exists( 'wp_interactivity_config' ),
