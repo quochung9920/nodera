@@ -129,13 +129,12 @@ final class UpdateClient {
 		return $temp;
 	}
 
-	/** Public, non-secret health status. */
+	/** Public, non-secret, network-free health status. */
 	public function public_status(): array {
-		$manifest = $this->configured() ? $this->manifest() : null;
 		return array(
 			'configured'         => $this->configured(),
-			'manifestVerified'   => is_array( $manifest ),
-			'availableVersion'   => is_array( $manifest ) ? (string) $manifest['version'] : '',
+			'manifestVerified'   => is_array( $this->manifest_cache ),
+			'availableVersion'   => is_array( $this->manifest_cache ) ? (string) ( $this->manifest_cache['version'] ?? '' ) : '',
 			'currentVersion'     => NODERA_VERSION,
 			'contentFeatureGate' => false,
 		);
