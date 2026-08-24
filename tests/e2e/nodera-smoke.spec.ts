@@ -6,9 +6,10 @@ const password = process.env.WP_ADMIN_PASSWORD;
 
 async function login(page: any) {
 	await page.goto('/wp-login.php');
-	await page.getByLabel(/Username|Email/i).fill(username!);
-	await page.getByLabel(/Password/i).fill(password!);
-	await page.getByRole('button', { name: /Log In/i }).click();
+	await page.locator('#user_login').fill(username!);
+	await page.locator('#user_pass').fill(password!);
+	await page.locator('#wp-submit').click();
+	await page.waitForURL(/\/wp-admin\//, { timeout: 30_000 });
 	await page.goto('/wp-admin/post-new.php?post_type=page');
 	await page.waitForFunction(() => Boolean((window as any).wp?.data?.select('core/block-editor')));
 	await expect.poll(() => page.evaluate(() => Boolean((window as any).NoderaNativeUI))).toBe(true);
