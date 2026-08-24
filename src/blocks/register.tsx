@@ -1,4 +1,4 @@
-import { registerBlockType } from '@wordpress/blocks';
+import { getBlockType, registerBlockType } from '@wordpress/blocks';
 import { RichText } from '@wordpress/block-editor';
 import { Button, Notice, TextControl } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
@@ -33,5 +33,9 @@ function TabsEdit({ attributes, setAttributes }: any) {
 	</div>;
 }
 
-registerBlockType(accordion.name, { ...accordion, supports: { ...(accordion as any).supports, inserter: false }, edit: AccordionEdit, save: () => null } as any);
-registerBlockType(tabs.name, { ...tabs, supports: { ...(tabs as any).supports, inserter: false }, edit: TabsEdit, save: () => null } as any);
+if (!getBlockType(accordion.name)) {
+	registerBlockType(accordion.name, { ...accordion, supports: { ...(accordion as any).supports, inserter: false }, edit: AccordionEdit, save: () => null } as any);
+}
+if (!getBlockType(tabs.name)) {
+	registerBlockType(tabs.name, { ...tabs, supports: { ...(tabs as any).supports, inserter: false }, edit: TabsEdit, save: () => null } as any);
+}
