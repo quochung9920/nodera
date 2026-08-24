@@ -1,8 +1,11 @@
 {
   "name": "nodera",
-  "version": "0.1.0-alpha.5",
+  "version": "0.1.0-rc.1",
   "private": true,
   "description": "Nodera — AI-native WordPress Builder",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "start": "wp-scripts start src/editor.tsx --output-path=build",
     "build:editor": "wp-scripts build src/editor.tsx --output-path=build",
@@ -16,7 +19,8 @@
     "verify:runtime": "node scripts/verify-runtime.mjs",
     "check:quality": "npm run typecheck && npm run lint:js && npm run lint:css && npm run test:unit && npm run build && npm run verify:runtime",
     "package": "node scripts/package.mjs",
-    "verify:package": "node scripts/verify-package.mjs"
+    "verify:package": "node scripts/verify-package.mjs",
+    "release:verify": "npm run check:quality && npm run package && npm run verify:package"
   },
   "devDependencies": {
     "@playwright/test": "latest",
