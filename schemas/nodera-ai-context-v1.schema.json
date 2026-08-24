@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nodera.local/schemas/nodera-ai-context-v1.schema.json",
+  "title": "Nodera AI Context v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "task", "target", "document", "context", "contracts", "design", "visualFacts", "nativeWordPress", "environment", "limits", "output"],
+  "properties": {
+    "schema": { "const": "nodera-ai-context/v1" },
+    "task": { "type": "object" },
+    "target": {
+      "type": "object",
+      "required": ["kind", "stableIds", "fingerprint"],
+      "properties": {
+        "kind": { "enum": ["block", "subtree", "selection", "page"] },
+        "stableIds": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^nd_[a-z0-9]{12,40}$" } },
+        "fingerprint": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "document": { "type": "object" },
+    "context": { "type": "object" },
+    "contracts": { "type": "object" },
+    "design": { "type": "object" },
+    "visualFacts": { "type": "object" },
+    "nativeWordPress": { "type": "object" },
+    "environment": { "type": "object" },
+    "limits": { "type": "object" },
+    "output": { "type": "object", "properties": { "schema": { "const": "nodera-patch/v1" } } }
+  }
+}
