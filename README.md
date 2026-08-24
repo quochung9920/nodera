@@ -2,58 +2,89 @@
 
 **Nodera — AI-native WordPress Builder**
 
-Nodera is a professional authoring and AI safety layer that runs directly inside the native WordPress block editor. Gutenberg remains the canonical document engine: pages are ordinary Gutenberg blocks serialized in `post_content`, with native WordPress save, revisions, List View, rendering and undo/redo.
+Nodera runs directly inside the native WordPress block editor. Gutenberg `post_content` remains the only canonical page document; WordPress continues to own List View, block rendering, Style Engine, Global Styles, Block Bindings, Save, revisions and Undo/Redo.
 
-## Functional alpha
+## Alpha 0.1.0-alpha.5
 
-Version `0.1.0-alpha.4` ships a committed production runtime under `build/`, so WordPress users do **not** need Node.js, npm, Composer, TypeScript or Git to activate and use the plugin.
+Alpha.5 requires WordPress 7.1+ and PHP 8.1+. The committed `build/` runtime lets WordPress users install and use Nodera without Node.js, npm or Composer.
 
-The primary UX is now Gutenberg-native:
+### Gutenberg-native UX
 
-- select a Gutenberg block and use **Nodera AI** directly from the block toolbar;
-- use **Nodera AI**, **Responsive**, **Dynamic Data**, and **States & Effects** directly in the native Block settings sidebar;
-- keep base typography, spacing, colors, dimensions, alignment and layout in Gutenberg's native controls whenever Gutenberg already owns that capability;
-- use the top-level Nodera toolbar/sidebar only for page-level AI, Global Design and fallback workflows;
-- keep Gutenberg List View, native Undo/Redo, Save/Update, revisions, block rendering, Patterns, Block Supports and normal editing behavior intact.
+Select a Gutenberg block to get:
 
-Included engine capabilities:
+- **Nodera AI** in the native block toolbar and Block Inspector;
+- **Responsive** controls that write WordPress 7.1 `style.@tablet` / `style.@mobile` states;
+- **Dynamic Data** through native Block Bindings;
+- **States & Effects** using native pseudo style states where Core exposes them;
+- Custom CSS only as an explicit restricted fallback.
 
-- persistent `noderaId` block identity;
-- machine-readable contracts projected from the WordPress block registry;
-- `nodera-ai-context/v1` and `nodera-patch/v1` with target fingerprints and scope protection;
-- provider-neutral direct AI generation bridge (`nodera_ai_generate_patch`) that validates every returned patch before Apply;
-- manual external-AI fallback when no direct provider bridge is configured;
-- in-memory candidate trees, semantic diff, deterministic quality findings and BlockPreview review;
-- responsive overrides only where Gutenberg base controls are insufficient;
-- native WordPress Global Styles and native Block Bindings UX;
-- state styles and restricted scoped Custom CSS;
-- accessible Nodera Accordion and Tabs using the WordPress Interactivity API.
+Page-level Nodera tools remain available for whole-page AI and Global Design. Base styling should continue to use Gutenberg controls whenever Core already exposes the capability.
+
+### Direct AI providers
+
+Go to **Settings → Nodera AI** and configure one of:
+
+- OpenAI;
+- Anthropic;
+- Google Gemini;
+- an OpenAI-compatible HTTPS endpoint;
+- or leave providers disabled and use the manual external-AI fallback.
+
+Credentials are stored server-side in WordPress and are never sent to Gutenberg. Before provider calls, Nodera validates the editable target, sanitizes the AI context and redacts secret-like fields. Every provider result is treated as untrusted and must pass the `nodera-patch/v1` validator before Apply.
+
+### WordPress 7.1 native-first changes
+
+- new responsive styling uses the WordPress Style Engine instead of the old Nodera responsive data model;
+- Button and Navigation Link pseudo states use native `:hover`, `:focus`, `:focus-visible` and `:active` style states;
+- AI authors native Core Accordion/Tabs families instead of `nodera/accordion` and `nodera/tabs`;
+- the old Nodera Accordion/Tabs remain registered only for legacy-content compatibility and are hidden from the inserter;
+- stable IDs are assigned lazily to active Nodera scopes instead of dirtying every block when an old page opens;
+- `build/editor.js` is again the single production editor runtime; the temporary `build/gutenberg-native.js` bridge has been removed.
+
+### AI safety pipeline
+
+```text
+Gutenberg target
+  → lazy stable IDs
+  → fingerprint + scope
+  → live Block Contracts
+  → sanitized provider context
+  → provider
+  → nodera-patch/v1
+  → strict validator
+  → candidate tree
+  → semantic diff + quality evidence
+  → preview/review
+  → Apply through core/block-editor
+  → native Undo / Save
+```
 
 ## Install without Node.js
 
-1. Download the repository ZIP from the `main` branch, or use a packaged Nodera ZIP.
-2. In WordPress go to **Plugins → Add Plugin → Upload Plugin**.
-3. Upload the ZIP and activate **Nodera — AI-native WordPress Builder**.
-4. Open a page in Gutenberg.
-5. Select any block. Nodera controls appear in the native **Block** sidebar, and an **AI** action appears in the block toolbar.
+1. Download the repository ZIP from `main`, or use a packaged Nodera ZIP.
+2. WordPress → **Plugins → Add Plugin → Upload Plugin**.
+3. Activate Nodera.
+4. Open a page in Gutenberg and select a block.
+5. Configure direct AI under **Settings → Nodera AI** if desired.
 
-The committed `build/` directory is the production runtime. Node.js is needed only by developers rebuilding source.
+Node.js and Composer are developer-only requirements.
 
-## Direct AI providers
+## Development gates
 
-Nodera itself remains provider-neutral. A direct provider integration hooks the WordPress filter:
-
-```php
-add_filter( 'nodera_ai_generate_patch', function ( $patch, $body, $request ) {
-    // Call your trusted AI provider and return a decoded nodera-patch/v1 array.
-    return $generated_patch;
-}, 10, 3 );
+```bash
+npm install
+npm run check:quality
+composer install
+vendor/bin/phpcs
+vendor/bin/phpunit
+npm run package
+npm run verify:package
 ```
 
-If no provider bridge is configured, Nodera keeps the manual external-AI workflow as a fallback instead of silently sending page data to a third party.
+Real browser E2E reads `WP_BASE_URL`, `WP_ADMIN_USER` and `WP_ADMIN_PASSWORD` from environment variables; credentials are never stored in the repository.
 
 ## Architecture invariant
 
-`post_content` / the Gutenberg block tree is the only canonical page document. Nodera does not maintain a parallel whole-page session, fork Gutenberg, replace WordPress revisions or render normal core blocks through a second renderer.
+Nodera does not maintain a parallel whole-page document, fork Gutenberg, replace WordPress revisions, create a second history engine or render ordinary Core blocks through a second renderer.
 
 See `docs/ARCHITECTURE.md`, `docs/AI_ARCHITECTURE.md`, `docs/TESTING.md` and `docs/KNOWN_LIMITATIONS.md`.

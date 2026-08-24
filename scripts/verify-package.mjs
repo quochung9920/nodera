@@ -11,7 +11,6 @@ for (const runtime of [
 	'build/editor.js',
 	'build/editor.asset.php',
 	'build/editor.css',
-	'build/gutenberg-native.js',
 	'build/accordion-view.js',
 	'build/tabs-view.js',
 	'blocks/accordion/block.json',
@@ -19,4 +18,5 @@ for (const runtime of [
 ]) {
 	if (!fs.existsSync(runtime)) throw new Error(`Runtime file missing before packaging: ${runtime}`);
 }
+if (fs.existsSync('build/gutenberg-native.js')) throw new Error('Temporary gutenberg-native bridge must not ship in alpha.5.');
 console.log(`${file} verified (${stat.size} bytes)`);

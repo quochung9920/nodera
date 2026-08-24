@@ -1,42 +1,47 @@
 === Nodera — AI-native WordPress Builder ===
 Contributors: quochung9920
-Requires at least: 7.0
+Requires at least: 7.1
 Requires PHP: 8.1
-Stable tag: 0.1.0-alpha.4
+Stable tag: 0.1.0-alpha.5
 License: GPLv2 or later
 
-Nodera adds professional AI authoring, responsive overrides, native Global Styles and Block Bindings UX directly inside Gutenberg while preserving the native WordPress document model.
+Nodera adds AI-native professional authoring directly inside Gutenberg while preserving WordPress as the document, style, data-binding, rendering, history and revision engine.
 
 == Description ==
 
-Nodera is an alpha-stage Gutenberg extension. Gutenberg `post_content` remains canonical. Select a Gutenberg block to access Nodera AI from the block toolbar and Nodera AI, Responsive, Dynamic Data, and States & Effects from the native Block settings sidebar. Gutenberg continues to own base styling, List View, block insertion/reordering, Undo/Redo, Save/Update, revisions and rendering.
+Nodera is an alpha-stage WordPress 7.1+ Gutenberg extension. Gutenberg `post_content` remains canonical. Select a block to access Nodera AI from the block toolbar plus Responsive, Dynamic Data and States & Effects from the standard Block sidebar.
 
-AI results are structured, scoped and validated before a user explicitly applies them; Apply does not automatically save the post. Direct AI generation is provider-neutral and uses the `nodera_ai_generate_patch` integration filter. If no provider bridge is configured, Nodera keeps the manual external-AI workflow as a fallback.
+Alpha.5 writes responsive overrides into native WordPress `style.@tablet` / `style.@mobile` style states. Supported Button and Navigation Link pseudo states use native WordPress style states. Dynamic Data uses Block Bindings and Global Design writes to WordPress Global Styles.
+
+Direct AI can be configured under Settings > Nodera AI for OpenAI, Anthropic, Google Gemini or an OpenAI-compatible HTTPS endpoint. API credentials remain server-side. Provider context is sanitized and every generated `nodera-patch/v1` result must pass Nodera validation before Apply. Apply uses Gutenberg APIs and does not automatically save the post.
+
+WordPress 7.1 Core Accordion and Tabs are preferred for new content. The old Nodera Accordion/Tabs remain registered only for legacy-content compatibility and are hidden from the inserter.
 
 == Installation ==
 
-Download the Nodera repository ZIP from the main branch or use a packaged Nodera ZIP, upload it in WordPress under Plugins > Add Plugin > Upload Plugin, then activate Nodera. The production `build/` runtime is included, so end users do not need Node.js, npm or Composer.
+Download the repository ZIP from main or use a packaged Nodera ZIP, upload it under Plugins > Add Plugin > Upload Plugin, then activate Nodera. Production runtime files are included, so end users do not need Node.js, npm or Composer.
 
-Open a page in Gutenberg and select any block. Use the AI action in the native block toolbar or open the Nodera panels in the standard Block sidebar.
+Open a page in Gutenberg and select a block. Configure a direct provider under Settings > Nodera AI when direct AI generation is required.
 
 == Changelog ==
+
+= 0.1.0-alpha.5 =
+* Requires WordPress 7.1 and migrates new responsive editing to native Gutenberg viewport style states.
+* Uses native pseudo style states for supported Core Button and Navigation Link interactions.
+* Added server-side OpenAI, Anthropic, Gemini and OpenAI-compatible provider configuration with sanitized provider context.
+* Changed stable block identity assignment to lazy active-scope reconciliation instead of eagerly dirtying whole legacy pages.
+* AI now prefers WordPress Core Accordion/Tabs families; old Nodera variants are legacy-only and hidden from the inserter.
+* Expanded Global Styles, Block Bindings, deterministic quality evidence and browser acceptance tests.
+* Consolidated the editor runtime into build/editor.js and removed the temporary gutenberg-native.js bridge.
+* Added clean runtime/package integrity checks.
 
 = 0.1.0-alpha.4 =
 * Moved the primary Nodera experience directly into Gutenberg Block Toolbar and InspectorControls.
 * Added in-block Nodera AI, Responsive, Dynamic Data, and States & Effects controls.
 * Added provider-neutral direct AI generation with mandatory Nodera patch validation before Apply.
-* Kept external AI copy/paste as an explicit fallback instead of the primary workflow.
-* Preserved Gutenberg as the owner of block tree, List View, base Block Supports, native Undo/Redo, Save, revisions and rendering.
 
 = 0.1.0-alpha.3 =
-* Added committed production runtime assets so Nodera can be installed and used without Node.js on the WordPress machine.
-* Added prebuilt editor UI, CSS and Interactivity API runtime modules to main/package output.
-* Synchronized runtime/package/block versions and installation documentation.
+* Added committed production runtime assets so Nodera can be installed without Node.js on the WordPress machine.
 
 = 0.1.0-alpha.2 =
-* Hardened AI patch validation and target fingerprints.
-* Added candidate diff/preview and deterministic quality review.
-* Added responsive/state/scoped CSS authoring.
-* Added native Global Styles and Block Bindings UX.
-* Added Interactivity API Accordion and Tabs blocks.
-* Added diagnostics, tests and package verification.
+* Added AI patch validation, candidate diff/preview, responsive/state controls, Global Styles, Block Bindings, Interactivity blocks, diagnostics and package verification.

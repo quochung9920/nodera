@@ -27,7 +27,8 @@ export function clientIdToStableId(blocks: NoderaBlock[], clientId: string): str
 	return typeof value === 'string' ? value : undefined;
 }
 
-export function reconcileIdentities(blocks: NoderaBlock[]): number {
+/** Assign persistent IDs only to the scope Nodera is actively using. */
+export function ensureIdentities(blocks: NoderaBlock[]): number {
 	const seen = new Set<string>();
 	let changed = 0;
 	const editorDispatch = dispatch('core/block-editor') as unknown as {
@@ -46,22 +47,27 @@ export function reconcileIdentities(blocks: NoderaBlock[]): number {
 	return changed;
 }
 
-let lastSignature = '';
+export const reconcileIdentities = ensureIdentities;
+
+let lastSelected = '';
 let reconciling = false;
 
+/** Opening a legacy page no longer dirties every block; selected subtrees are reconciled on demand. */
 export function startIdentityReconciler(): () => void {
 	const run = () => {
 		if (reconciling) return;
-		const store = select('core/block-editor') as unknown as { getBlocks: () => NoderaBlock[] };
-		const blocks = store.getBlocks() || [];
-		const signature = flattenBlocks(blocks)
-			.map((block) => `${block.clientId}:${String(block.attributes?.noderaId || '')}`)
-			.join('|');
-		if (signature === lastSignature) return;
-		lastSignature = signature;
+		const store = select('core/block-editor') as unknown as {
+			getSelectedBlockClientId: () => string | null;
+			getBlock: (clientId: string) => NoderaBlock | null;
+		};
+		const clientId = store.getSelectedBlockClientId?.() || '';
+		if (!clientId || clientId === lastSelected) return;
+		lastSelected = clientId;
+		const block = store.getBlock(clientId);
+		if (!block) return;
 		reconciling = true;
 		try {
-			reconcileIdentities(blocks);
+			ensureIdentities([block]);
 		} finally {
 			reconciling = false;
 		}
