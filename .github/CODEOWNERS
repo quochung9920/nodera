@@ -1,0 +1,11 @@
+# Commercial release ownership
+* @quochung9920
+
+# Security/protocol/release-engineering changes require explicit owner review.
+/includes/AI/ @quochung9920
+/includes/Protocols/ @quochung9920
+/includes/Commercial/ @quochung9920
+/includes/Contracts/ @quochung9920
+/.github/workflows/ @quochung9920
+/scripts/ @quochung9920
+/schemas/ @quochung9920
