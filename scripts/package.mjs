@@ -7,9 +7,18 @@ const required = ['nodera.php', 'includes', 'build', 'blocks', 'readme.txt', 'RE
 for (const entry of required) {
 	if (!fs.existsSync(entry)) throw new Error(`Missing required package entry: ${entry}`);
 }
-for (const file of ['build/editor.js', 'build/editor.asset.php', 'build/accordion-view.js', 'build/tabs-view.js']) {
+for (const file of [
+	'build/editor.js',
+	'build/editor.asset.php',
+	'build/editor.css',
+	'build/accordion-view.js',
+	'build/accordion-view.asset.php',
+	'build/tabs-view.js',
+	'build/tabs-view.asset.php',
+]) {
 	if (!fs.existsSync(file)) throw new Error(`Missing required runtime build: ${file}`);
 }
+if (fs.existsSync('build/gutenberg-native.js')) throw new Error('Legacy Gutenberg runtime bridge must not ship.');
 fs.mkdirSync('dist', { recursive: true });
 const filename = `dist/nodera-${version}.zip`;
 const output = fs.createWriteStream(filename);
