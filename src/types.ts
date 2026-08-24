@@ -1,7 +1,7 @@
 export type NoderaBlock = {
 	clientId?: string;
 	name: string;
-	attributes: Record<string, unknown>;
+	attributes: Record<string, any>;
 	innerBlocks: NoderaBlock[];
 };
 
@@ -18,11 +18,7 @@ export type PatchOperation = {
 
 export type NoderaPatch = {
 	schema: 'nodera-patch/v1';
-	target: {
-		kind: string;
-		stableIds: string[];
-		fingerprint: string;
-	};
+	target: { kind: string; stableIds: string[]; fingerprint: string };
 	operations: PatchOperation[];
 };
 
@@ -44,6 +40,10 @@ declare global {
 			theme: string;
 			breakpoints: Record<string, { label: string; maxWidth: number }>;
 			dynamicMeta: string;
+			nativeResponsive: boolean;
+			nativePseudoStates: string[];
+			aiProvider: { configured: boolean; provider: string; model: string };
+			settingsUrl: string;
 		};
 	}
 }
