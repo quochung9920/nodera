@@ -2,117 +2,106 @@
 
 **Nodera — AI-native WordPress Builder**
 
-Nodera runs directly inside the native WordPress block editor. Gutenberg `post_content` remains the only canonical page document; WordPress continues to own List View, block rendering, Style Engine, Global Styles, Block Bindings, Save, revisions and Undo/Redo.
+Nodera runs directly inside the native WordPress block editor. Gutenberg `post_content` remains the only canonical page document; WordPress continues to own List View, rendering, Style Engine, Global Styles, Block Bindings, Save, revisions and Undo/Redo.
 
-## 0.1.0-rc.2 — portable AI release candidate
+## 0.1.0-rc.3 — commercial hardening release candidate
 
-RC2 targets WordPress 7.1+ and PHP 8.1+. The committed `build/` runtime lets WordPress users install and use Nodera without Node.js, npm, Composer or an AI API key.
+RC3 targets WordPress 7.1+ and PHP 8.1+. The committed `build/` runtime lets WordPress users install and use Nodera without Node.js, npm, Composer or an AI API key.
 
-This is a **release candidate**, not a production-certified stable release. Promotion beyond RC requires the runtime and release gates in `docs/PRODUCTION_READINESS.md`.
+This remains a **release candidate**, not a production-certified stable release. RC3 adds the product/release infrastructure needed for commercial pilots while keeping real-environment certification as an explicit gate.
 
 ### Gutenberg-native UX
 
-Select a Gutenberg block to get:
-
-- **Nodera AI** in the native block toolbar and Block Inspector;
-- **Responsive** controls that write WordPress 7.1 `style.@tablet` / `style.@mobile` states;
-- **Dynamic Data** through native Block Bindings;
-- **States & Effects** using native pseudo style states where Core exposes them;
-- Custom CSS only as an explicit restricted fallback.
-
-Page-level Nodera tools remain available for whole-page AI and Global Design. Base styling continues to use Gutenberg controls whenever Core already exposes the capability.
+Select a Gutenberg block to get Nodera AI in the native Block Toolbar/Inspector plus Responsive, Dynamic Data and States & Effects. Page-level tools expose whole-page portable AI and Global Design. Native Gutenberg/WordPress capabilities remain authoritative whenever they exist.
 
 ## Primary AI workflow: export → external AI → import
 
-Nodera does **not require an API key** for its primary AI workflow.
+No API key is required:
 
-1. Select a Gutenberg block, selected subtree, or whole page.
-2. Enter an optional task.
-3. Use **Copy for AI**, **Download Session JSON**, or **Download Prompt**.
-4. Send the portable `nodera-ai-export/v1` session to ChatGPT, Claude, Gemini, Codex, a local model, or any other AI capable of returning JSON.
-5. The external AI returns exactly one `nodera-patch/v1` object.
-6. Paste or upload that JSON under **Import AI Result**.
-7. Nodera validates fingerprint, editable scope, block contracts, attributes, URLs/CSS and candidate structure.
-8. Review semantic diff and quality findings.
-9. Click **Apply to Gutenberg**. Native Gutenberg Undo/Redo and Save/Update remain in control.
+1. Select one block, a subtree, or whole page.
+2. Optionally describe the requested change.
+3. **Copy for AI**, **Download Session JSON**, or **Download Prompt**.
+4. Process the sanitized `nodera-ai-export/v1` package with ChatGPT, Claude, Gemini, Codex or another AI.
+5. Return exactly one `nodera-patch/v1` object.
+6. Paste/upload it and choose **Validate & Preview**.
+7. Review semantic diff, deterministic quality findings and Before/After previews.
+8. **Apply to Gutenberg**. Native Undo/Redo and Save/Update remain in control.
 
-Portable sessions are temporary AI context, never a second page/document engine. The server sanitizes and redacts the export before it leaves WordPress.
+RC3 formalizes protocol 1.0, publishes JSON Schemas under `schemas/`, exposes authenticated protocol capabilities at `/wp-json/nodera/v1/protocol`, and stamps sanitized export envelopes with deterministic SHA-256 integrity metadata. Integrity is transport evidence, never authorization: every imported patch still passes fingerprint, exact scope, block-contract, attribute, URL/CSS, candidate-tree and quality validation.
 
-```text
-Gutenberg target
-  → lazy stable IDs
-  → fingerprint + editable scope
-  → live Block Contracts
-  → server-side context sanitizer/redaction
-  → nodera-ai-export/v1
-  → external AI of your choice
-  → nodera-patch/v1
-  → strict server validator
-  → candidate tree
-  → semantic diff + quality evidence
-  → explicit Apply through core/block-editor
-  → native Undo / Save / revisions
-```
+If the Gutenberg target changes after export, Nodera does **not** auto-merge the stale patch. The editor shows an explicit conflict and offers Fresh Export or Discard.
 
 ### Export scopes
 
-- **Selected block only** — only the selected block is editable; descendants remain contextual/read-only.
-- **Selected block + inner blocks** — the complete selected Gutenberg subtree is editable.
-- **Whole page** — the document root is editable from the page-level Nodera panel.
+- **Selected block only** — only the selected root stable ID is editable; inner structure cannot be changed.
+- **Selected block + inner blocks** — the full selected subtree is editable.
+- **Whole page** — the current Gutenberg document root is editable.
 
-Block-only exports assign a persistent ID only to the selected root. Descendant IDs are materialized only when a subtree/page export actually needs them.
+Stable IDs are materialized lazily and checked for page-wide uniqueness.
 
-### Optional direct AI providers
+## WordPress-native authoring
 
-Direct OpenAI, Anthropic, Google Gemini and OpenAI-compatible integrations remain available under **Settings → Nodera AI**, but they are optional and collapsed behind the portable workflow in the editor.
+- responsive styling writes WordPress 7.1 `style.@tablet` / `style.@mobile` states;
+- supported Core Button/Navigation Link states use `:hover`, `:focus`, `:focus-visible`, `:active`;
+- Dynamic Data uses native Block Bindings;
+- Global Design writes native WordPress Global Styles;
+- Core Accordion/Tabs are preferred for new content; old Nodera variants remain hidden legacy compatibility blocks;
+- AI Apply dispatches through `core/block-editor` and never auto-saves.
 
-For deployments that choose direct generation, credentials can be supplied from `wp-config.php` so an API key does not need to live in the WordPress database:
+## Ecosystem adapters
 
-```php
-define( 'NODERA_AI_PROVIDER', 'openai' );
-define( 'NODERA_AI_MODEL', 'your-model' );
-define( 'NODERA_AI_API_KEY', '...' );
-// Optional for openai_compatible only:
-define( 'NODERA_AI_ENDPOINT', 'https://example.com/v1/chat/completions' );
-```
+RC3 adds a reviewed third-party block contract adapter API. Unknown third-party blocks remain AI read-only until a trusted integration explicitly opts them into authoring and may further restrict their registered attribute schema. See `docs/BLOCK_ADAPTERS.md`.
 
-Direct provider HTTP remains rate-limited, server-side, safe-URL validated and untrusted until the same `nodera-patch/v1` validator succeeds.
+Dynamic Data now detects optional ACF and WooCommerce integrations and exposes safe native Block Bindings sources:
 
-### WordPress 7.1 native-first behavior
+- ACF scalar fields by explicit field name;
+- WooCommerce `name`, `sku`, `price`, `regular_price`, `sale_price`, `stock_status`, `permalink`.
 
-- new responsive styling uses the WordPress Style Engine instead of a second responsive engine;
-- supported pseudo states use native `:hover`, `:focus`, `:focus-visible` and `:active` style states;
-- AI authors native Core Accordion/Tabs families instead of `nodera/accordion` and `nodera/tabs`;
-- old Nodera Accordion/Tabs remain hidden, legacy compatibility blocks;
-- stable IDs are assigned lazily to the exact active Nodera scope;
-- `build/editor.js` is the single production editor runtime.
+These adapters do not introduce a parallel data-binding engine.
 
-## Install without Node.js
+## Commercial operations
 
-1. Download the repository ZIP from `main`, or use a packaged Nodera ZIP.
-2. WordPress → **Plugins → Add Plugin → Upload Plugin**.
-3. Activate Nodera. Activation blocks unsupported WordPress/PHP versions or a package missing required runtime assets.
-4. Open a page in Gutenberg and select a block.
-5. Export the block/subtree/page for your preferred external AI, then import the returned patch.
+RC3 adds:
 
-Node.js, Composer and AI API keys are not required for end users using portable AI sessions.
+- **Tools → Nodera** onboarding/readiness screen with a non-secret support fingerprint;
+- optional **Settings → Nodera Commercial** entitlement configuration;
+- licensing that controls only update/support entitlement, never Gutenberg content or editor access;
+- an inert-by-default signed commercial updater with safe HTTPS manifest transport, RSA/SHA-256 manifest verification and package SHA-256 verification before install;
+- idempotent internal migration tracking that never rewrites `post_content`;
+- compatibility matrix and rollback/distribution policy.
 
-## Development and release gates
+The updater requires explicit `NODERA_UPDATE_MANIFEST_URL` and `NODERA_UPDATE_PUBLIC_KEY_PEM` configuration. Production licenses may be supplied using `NODERA_LICENSE_KEY` in `wp-config.php`. See `docs/COMMERCIAL_DISTRIBUTION.md`.
+
+## Optional direct AI providers
+
+OpenAI, Anthropic, Google Gemini and OpenAI-compatible direct providers remain optional under **Settings → Nodera AI**. They use the same patch validator and are not required by the portable workflow.
+
+## Release engineering
+
+Direct npm and Composer dependencies are pinned to exact versions in RC3. A stable release additionally requires generated/reviewed `package-lock.json` and `composer.lock`; Nodera deliberately does not fabricate lockfiles. `npm run release:stable:verify` blocks stable promotion when either lockfile is absent.
+
+Developer gates include PHP 8.1–8.4 syntax/PHPUnit matrix, PHPCS, TypeScript, JS/CSS lint, JS unit tests, clean build, runtime verification, ZIP/SHA-256 packaging and package verification. Real Playwright acceptance is configured for Chromium, Firefox and WebKit when a WordPress test site is supplied through environment variables.
 
 ```bash
-npm install
+npm install --no-audit --no-fund
 npm run release:verify
 composer install
 vendor/bin/phpcs
 vendor/bin/phpunit
 ```
 
-`npm run package` creates `dist/nodera-<version>.zip` plus a SHA-256 checksum. `npm run verify:package` verifies version synchronization, required runtime/release files and checksum integrity.
+Before a stable commercial release, generate/review the lockfiles in a trusted networked environment and run:
 
-Real browser E2E reads `WP_BASE_URL`, `WP_ADMIN_USER` and `WP_ADMIN_PASSWORD` from environment variables; credentials are never stored in the repository.
+```bash
+npm run release:stable:verify
+```
 
 ## Architecture invariant
 
 Nodera does not maintain a parallel whole-page document, fork Gutenberg, replace WordPress revisions, create a second history engine or render ordinary Core blocks through a second renderer.
 
-See `docs/ARCHITECTURE.md`, `docs/AI_ARCHITECTURE.md`, `docs/TESTING.md`, `docs/PRODUCTION_READINESS.md`, `docs/KNOWN_LIMITATIONS.md` and `SECURITY.md`.
+## Status
+
+`0.1.0-rc.3` is suitable for controlled commercial pilots/early access after site-specific acceptance testing. Do not describe it as production-certified stable until the real-browser, theme/plugin, accessibility and stable-lockfile gates in `docs/PRODUCTION_READINESS.md` are satisfied.
+
+See `docs/AI_PROTOCOL.md`, `docs/AI_ARCHITECTURE.md`, `docs/BLOCK_ADAPTERS.md`, `docs/COMMERCIAL_DISTRIBUTION.md`, `docs/COMPATIBILITY_MATRIX.md`, `docs/TESTING.md`, `docs/PRODUCTION_READINESS.md`, `docs/KNOWN_LIMITATIONS.md` and `SECURITY.md`.
