@@ -4,6 +4,7 @@ Automated repository gates:
 
 ```bash
 npm install --no-audit --no-fund
+composer validate --strict
 composer install
 npm run typecheck
 npm run lint:js
@@ -17,7 +18,9 @@ npm run package
 npm run verify:package
 ```
 
-`verify:runtime` requires a single `build/editor.js` Gutenberg-native runtime and rejects the temporary alpha.4 `build/gutenberg-native.js` bridge.
+For the JavaScript/build/package side, `npm run release:verify` runs the quality, clean build, runtime integrity, packaging and package integrity sequence.
+
+`verify:runtime` requires a single `build/editor.js` Gutenberg-native runtime, synchronized release metadata, the production security hardening files and no temporary `build/gutenberg-native.js` bridge. Packaging creates both a ZIP and SHA-256 checksum.
 
 Real WordPress acceptance uses Playwright and environment variables only:
 
@@ -28,7 +31,7 @@ WP_ADMIN_PASSWORD=... \
 npm run test:e2e
 ```
 
-The alpha.5 E2E suite checks:
+The RC E2E suite checks:
 
 - direct Gutenberg block toolbar/Inspector integration;
 - lazy persistent block identity instead of eager whole-document mutation;
@@ -39,4 +42,4 @@ The alpha.5 E2E suite checks:
 
 Provider-backed generation should additionally be exercised on a private local/test environment with a real provider key: Generate → validate → review diff/quality → Apply → Undo → Save → Reload → frontend verification. Provider keys must never be committed.
 
-Browser tests are skipped when required environment variables are absent. A skip is not a browser PASS.
+Browser tests are skipped when required environment variables are absent. A skip is not a browser PASS. See `PRODUCTION_READINESS.md` for the gates required before production certification.
