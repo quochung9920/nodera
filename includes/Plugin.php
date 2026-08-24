@@ -23,6 +23,7 @@ use Nodera\Responsive\BreakpointRegistry;
 use Nodera\Responsive\ResponsiveStyleCompiler;
 use Nodera\Rest\AIRestController;
 use Nodera\Rest\DiagnosticsController;
+use Nodera\Rest\VisualContextController;
 
 final class Plugin {
 	private static ?self $instance = null;
@@ -65,6 +66,7 @@ final class Plugin {
 		$onboarding->register();
 		( new ProtocolController( $protocols ) )->register();
 		( new AIRestController( $contracts ) )->register();
+		( new VisualContextController() )->register();
 		( new DiagnosticsController( $contracts, $breakpoints, $protocols, $compatibility, $migrations, $bindings, $entitlement, $updates ) )->register();
 
 		add_action( 'enqueue_block_editor_assets', array( $this, 'enqueue_editor' ) );
@@ -127,6 +129,14 @@ JS;
 			) . ';',
 			'before'
 		);
+
+		$visual_script = NODERA_DIR . 'build/visual-fidelity.js';
+		if ( file_exists( $visual_script ) ) {
+			wp_enqueue_script( 'nodera-visual-fidelity', NODERA_URL . 'build/visual-fidelity.js', array( 'nodera-editor' ), NODERA_VERSION, true );
+			if ( file_exists( NODERA_DIR . 'build/visual-fidelity.css' ) ) {
+				wp_enqueue_style( 'nodera-visual-fidelity', NODERA_URL . 'build/visual-fidelity.css', array( 'nodera-editor' ), NODERA_VERSION );
+			}
+		}
 
 		// Editor-only compatibility for alpha.2–alpha.4 saved content. These blocks are hidden from the inserter.
 		$legacy_blocks = <<<'JS'
