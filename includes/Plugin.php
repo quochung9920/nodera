@@ -24,6 +24,8 @@ use Nodera\Rest\DiagnosticsController;
 final class Plugin {
 	private static ?self $instance = null;
 	private bool $booted = false;
+	private ?BreakpointRegistry $breakpoints = null;
+	private ?ProviderManager $providers = null;
 
 	public static function instance(): self {
 		return self::$instance ??= new self();
@@ -35,14 +37,14 @@ final class Plugin {
 		}
 		$this->booted = true;
 
-		$stable_ids  = new StableBlockId();
-		$contracts   = new BlockContractRegistry();
-		$breakpoints = new BreakpointRegistry();
-		$responsive  = new ResponsiveStyleCompiler( $breakpoints );
-		$bindings    = new DynamicBindings();
-		$blocks      = new BlockRegistry();
-		$providers   = new ProviderManager();
-		$settings    = new SettingsPage( $providers );
+		$stable_ids        = new StableBlockId();
+		$contracts         = new BlockContractRegistry();
+		$this->breakpoints = new BreakpointRegistry();
+		$responsive        = new ResponsiveStyleCompiler( $this->breakpoints );
+		$bindings          = new DynamicBindings();
+		$blocks            = new BlockRegistry();
+		$this->providers   = new ProviderManager();
+		$settings          = new SettingsPage( $this->providers );
 
 		$stable_ids->register();
 		$contracts->register();
@@ -52,8 +54,8 @@ final class Plugin {
 		$bindings->register();
 		$blocks->register();
 		$settings->register();
-		( new AIRestController( $contracts, $providers ) )->register();
-		( new DiagnosticsController( $contracts, $breakpoints, $providers ) )->register();
+		( new AIRestController( $contracts, $this->providers ) )->register();
+		( new DiagnosticsController( $contracts, $this->breakpoints, $this->providers ) )->register();
 
 		add_action( 'enqueue_block_editor_assets', array( $this, 'enqueue_editor' ) );
 	}
@@ -94,6 +96,8 @@ JS;
 
 		$theme             = wp_get_theme();
 		$native_responsive = version_compare( get_bloginfo( 'version' ), '7.1', '>=' );
+		$breakpoints       = $this->breakpoints ?? new BreakpointRegistry();
+		$providers         = $this->providers ?? new ProviderManager();
 		wp_add_inline_script(
 			'nodera-editor',
 			'window.NoderaSettings=' . wp_json_encode(
