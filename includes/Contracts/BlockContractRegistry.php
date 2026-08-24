@@ -8,7 +8,7 @@
 namespace Nodera\Contracts;
 
 /**
- * Projects registered WordPress block types into bounded AI contracts.
+ * Projects the live WordPress block registry into bounded AI contracts.
  */
 final class BlockContractRegistry {
 	private const DEFAULT_ALLOWED = array(
@@ -27,51 +27,57 @@ final class BlockContractRegistry {
 		'core/separator',
 		'core/spacer',
 		'core/cover',
-		'nodera/accordion',
-		'nodera/tabs',
+		'core/quote',
+		'core/table',
+		'core/navigation-link',
+		'core/navigation-submenu',
+		'core/accordion',
+		'core/accordion-item',
+		'core/accordion-heading',
+		'core/accordion-panel',
+		'core/tabs',
+		'core/tab-list',
+		'core/tab',
+		'core/tab-panels',
+		'core/tab-panel',
 	);
 
-	/**
-	 * Reserved extension hook.
-	 */
 	public function register(): void {}
 
-	/**
-	 * Whether AI may create/replace this block type.
-	 */
 	public function is_ai_authorable( string $name ): bool {
 		$allowed = apply_filters( 'nodera_ai_authorable_blocks', self::DEFAULT_ALLOWED );
 		$allowed = array_values( array_unique( array_map( 'strval', (array) $allowed ) ) );
 		return in_array( $name, $allowed, true );
 	}
 
-	/**
-	 * Get one complete authoring contract.
-	 */
 	public function contract( string $name ): ?array {
 		$type = \WP_Block_Type_Registry::get_instance()->get_registered( $name );
 		if ( ! $type ) {
 			return null;
 		}
+		$supports = is_array( $type->supports ) ? $type->supports : array();
 		return array(
 			'name'            => $name,
 			'title'           => (string) $type->title,
+			'apiVersion'      => property_exists( $type, 'api_version' ) ? (int) $type->api_version : 2,
 			'attributes'      => is_array( $type->attributes ) ? $type->attributes : array(),
-			'supports'        => is_array( $type->supports ) ? $type->supports : array(),
+			'supports'        => $supports,
+			'selectors'       => property_exists( $type, 'selectors' ) && is_array( $type->selectors ) ? $type->selectors : array(),
 			'parent'          => is_array( $type->parent ) ? $type->parent : null,
 			'ancestor'        => property_exists( $type, 'ancestor' ) && is_array( $type->ancestor ) ? $type->ancestor : null,
 			'allowedBlocks'   => property_exists( $type, 'allowed_blocks' ) && is_array( $type->allowed_blocks ) ? $type->allowed_blocks : null,
 			'usesContext'     => is_array( $type->uses_context ) ? $type->uses_context : array(),
 			'providesContext' => is_array( $type->provides_context ) ? $type->provides_context : array(),
 			'nodera'          => array(
-				'aiAuthorable' => $this->is_ai_authorable( $name ),
+				'aiAuthorable'       => $this->is_ai_authorable( $name ),
+				'nativeResponsive'   => $this->has_design_supports( $supports ),
+				'nativePseudoStates' => in_array( $name, array( 'core/button', 'core/navigation-link' ), true ),
+				'bindingAttributes'  => $this->binding_attributes( $name ),
+				'legacyBlock'        => str_starts_with( $name, 'nodera/' ),
 			),
 		);
 	}
 
-	/**
-	 * Small discovery catalog. This is not authoring authorization.
-	 */
 	public function catalog(): array {
 		$out = array();
 		foreach ( \WP_Block_Type_Registry::get_instance()->get_all_registered() as $name => $type ) {
@@ -79,6 +85,7 @@ final class BlockContractRegistry {
 				'name'         => (string) $name,
 				'title'        => (string) $type->title,
 				'aiAuthorable' => $this->is_ai_authorable( (string) $name ),
+				'legacy'       => str_starts_with( (string) $name, 'nodera/' ),
 			);
 		}
 		return $out;
@@ -86,20 +93,21 @@ final class BlockContractRegistry {
 
 	/**
 	 * Select full contracts appropriate for the task.
-	 *
-	 * @param string $task Task text.
-	 * @param array  $existing_names Block names in scope.
-	 * @param string $mode focused, expanded or full.
 	 */
 	public function selection( string $task, array $existing_names, string $mode = 'focused' ): array {
 		$names = array_values( array_unique( array_filter( array_map( 'strval', $existing_names ) ) ) );
 		$text  = strtolower( $task );
 		if ( 'full' === $mode ) {
-			foreach ( self::DEFAULT_ALLOWED as $name ) {
-				$names[] = $name;
-			}
-		} elseif ( 'expanded' === $mode || preg_match( '/redesign|create|hero|landing|gallery|video|tabs|accordion|thiết kế|tạo|hình ảnh|video/u', $text ) ) {
-			$names = array_merge( $names, array( 'core/group', 'core/heading', 'core/paragraph', 'core/buttons', 'core/button', 'core/image', 'core/cover', 'core/columns', 'core/column', 'nodera/accordion', 'nodera/tabs' ) );
+			$names = array_merge( $names, self::DEFAULT_ALLOWED );
+		} elseif ( 'expanded' === $mode || preg_match( '/redesign|create|hero|landing|gallery|video|tabs|accordion|thiết kế|tạo|hình ảnh|video|tab/u', $text ) ) {
+			$names = array_merge(
+				$names,
+				array(
+					'core/group', 'core/heading', 'core/paragraph', 'core/buttons', 'core/button', 'core/image', 'core/cover', 'core/columns', 'core/column',
+					'core/accordion', 'core/accordion-item', 'core/accordion-heading', 'core/accordion-panel',
+					'core/tabs', 'core/tab-list', 'core/tab', 'core/tab-panels', 'core/tab-panel',
+				)
+			);
 		}
 		$contracts = array();
 		foreach ( array_values( array_unique( $names ) ) as $name ) {
@@ -134,9 +142,6 @@ final class BlockContractRegistry {
 		return array( 'valid' => true );
 	}
 
-	/**
-	 * Validate parent/ancestor relationship restrictions.
-	 */
 	public function validate_relationship( string $name, ?string $parent_name, array $ancestors ): array {
 		$contract = $this->contract( $name );
 		if ( ! $contract ) {
@@ -157,21 +162,40 @@ final class BlockContractRegistry {
 		return array( 'valid' => true );
 	}
 
-	/**
-	 * Type checker for block attribute schemas.
-	 */
+	private function has_design_supports( array $supports ): bool {
+		foreach ( array( 'typography', 'color', 'background', 'border', 'dimensions', 'spacing', 'layout' ) as $key ) {
+			if ( ! empty( $supports[ $key ] ) ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private function binding_attributes( string $name ): array {
+		return match ( $name ) {
+			'core/image'              => array( 'id', 'url', 'title', 'alt', 'caption' ),
+			'core/heading',
+			'core/paragraph'          => array( 'content' ),
+			'core/button'             => array( 'url', 'text', 'linkTarget', 'rel' ),
+			'core/navigation-link',
+			'core/navigation-submenu' => array( 'url' ),
+			'core/post-date'          => array( 'datetime' ),
+			default                   => array(),
+		};
+	}
+
 	private function matches_type( mixed $value, string|array $type ): bool {
 		$types = (array) $type;
 		foreach ( $types as $candidate ) {
 			$valid = match ( $candidate ) {
-				'string'  => is_string( $value ),
-				'boolean' => is_bool( $value ),
-				'integer' => is_int( $value ),
-				'number'  => is_int( $value ) || is_float( $value ),
-				'array'   => is_array( $value ) && array_is_list( $value ),
-				'object'  => is_array( $value ) && ! array_is_list( $value ),
-				'null'    => null === $value,
-				default   => true,
+				'string', 'rich-text' => is_string( $value ),
+				'boolean'             => is_bool( $value ),
+				'integer'             => is_int( $value ),
+				'number'              => is_int( $value ) || is_float( $value ),
+				'array'               => is_array( $value ) && array_is_list( $value ),
+				'object'              => is_array( $value ) && ! array_is_list( $value ),
+				'null'                => null === $value,
+				default               => true,
 			};
 			if ( $valid ) {
 				return true;
