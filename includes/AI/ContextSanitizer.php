@@ -86,12 +86,22 @@ final class ContextSanitizer {
 	}
 
 	/**
-	 * Media URLs inside browser measurements are contextual hints only. Query strings
-	 * and fragments can contain signed-CDN tokens, so never include them in exports.
+	 * Browser-measured URLs are contextual hints only. Signed-CDN credentials can
+	 * appear in query strings or CSS url() values, so strip those before export.
 	 */
 	private function sanitize_visual_urls( mixed $value, int $depth ): mixed {
 		if ( $depth > self::MAX_DEPTH ) {
 			return null;
+		}
+		if ( is_string( $value ) ) {
+			if ( str_contains( strtolower( $value ), 'url(' ) ) {
+				return preg_replace_callback(
+					'/url\(\s*(["\']?)(https?:\/\/[^)"\']+)\1\s*\)/i',
+					fn( array $matches ): string => 'url("' . $this->strip_url_credentials( trim( $matches[2] ) ) . '")',
+					$value
+				) ?? '';
+			}
+			return $value;
 		}
 		if ( ! is_array( $value ) ) {
 			return $value;
@@ -103,7 +113,7 @@ final class ContextSanitizer {
 				break;
 			}
 			$name = is_string( $key ) ? strtolower( $key ) : '';
-			if ( in_array( $name, array( 'src', 'currentSrc', 'poster' ), true ) && is_string( $item ) ) {
+			if ( in_array( $name, array( 'src', 'currentsrc', 'poster' ), true ) && is_string( $item ) ) {
 				$out[ $key ] = $this->strip_url_credentials( $item );
 				continue;
 			}
