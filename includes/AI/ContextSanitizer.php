@@ -30,8 +30,10 @@ final class ContextSanitizer {
 			}
 		}
 		$out = $this->walk( $out, 0 );
-		if ( isset( $out['visualFacts'] ) && is_array( $out['visualFacts'] ) ) {
-			$out['visualFacts'] = $this->sanitize_visual_urls( $out['visualFacts'], 0 );
+		foreach ( array( 'design', 'visualFacts' ) as $key ) {
+			if ( isset( $out[ $key ] ) && is_array( $out[ $key ] ) ) {
+				$out[ $key ] = $this->sanitize_contextual_urls( $out[ $key ], 0 );
+			}
 		}
 		return $out;
 	}
@@ -86,10 +88,10 @@ final class ContextSanitizer {
 	}
 
 	/**
-	 * Browser-measured URLs are contextual hints only. Signed-CDN credentials can
-	 * appear in query strings or CSS url() values, so strip those before export.
+	 * Measured/resolved design URLs are contextual hints only. Signed-CDN
+	 * credentials can appear in query strings or CSS url() values, so strip them.
 	 */
-	private function sanitize_visual_urls( mixed $value, int $depth ): mixed {
+	private function sanitize_contextual_urls( mixed $value, int $depth ): mixed {
 		if ( $depth > self::MAX_DEPTH ) {
 			return null;
 		}
@@ -117,7 +119,7 @@ final class ContextSanitizer {
 				$out[ $key ] = $this->strip_url_credentials( $item );
 				continue;
 			}
-			$out[ $key ] = $this->sanitize_visual_urls( $item, $depth + 1 );
+			$out[ $key ] = $this->sanitize_contextual_urls( $item, $depth + 1 );
 		}
 		return $out;
 	}
