@@ -1,27 +1,25 @@
 # Nodera AI portability protocol
 
-Nodera `0.1.0-rc.2` makes external-AI portability the primary AI workflow. No AI provider or API key is required.
+Nodera `0.1.0-rc.3` makes external-AI portability the primary AI workflow. No AI provider or API key is required.
 
 ## Transport schemas
 
 ### `nodera-ai-context/v1`
 
-Internal editor context assembled from the live Gutenberg block tree. It includes the requested task, target scope/fingerprint, bounded block tree, contextual ancestors/siblings, live block contracts, design facts, visual facts and WordPress-native capabilities.
-
-This raw context is not exported directly. WordPress first validates the live target and passes the context through `ContextSanitizer`.
+Internal editor context assembled from the live Gutenberg block tree. It includes the requested task, target scope/fingerprint, bounded block tree, contextual ancestors/siblings, live block contracts, design/visual facts and WordPress-native capabilities. WordPress validates the live target and sanitizes this context before export.
 
 ### `nodera-ai-export/v1`
 
-Portable, sanitized session returned by `POST /wp-json/nodera/v1/ai/export`.
+Portable sanitized session returned by `POST /wp-json/nodera/v1/ai/export`.
 
-Top-level shape:
+RC3 adds a protocol descriptor and deterministic integrity metadata:
 
 ```json
 {
   "schema": "nodera-ai-export/v1",
   "sessionId": "nds_...",
   "exportedAt": "...",
-  "noderaVersion": "0.1.0-rc.2",
+  "noderaVersion": "0.1.0-rc.3",
   "wordpressVersion": "7.1",
   "target": {
     "kind": "block|subtree|page",
@@ -33,99 +31,56 @@ Top-level shape:
   "outputRequirements": {
     "schema": "nodera-patch/v1",
     "rules": []
+  },
+  "protocol": {
+    "version": "1.0",
+    "contextSchema": "nodera-ai-context/v1",
+    "exportSchema": "nodera-ai-export/v1",
+    "patchSchema": "nodera-patch/v1"
+  },
+  "integrity": {
+    "algorithm": "sha256",
+    "value": "..."
   }
 }
 ```
 
-The session is temporary transport context. It is never the canonical page document, is not stored as a second editor state, and does not own history/revisions.
+Integrity is transport evidence over the sanitized target/context/output requirements. It is not authorization and never bypasses import validation. Portable sessions are temporary transport context, never a second page document/history/revision store.
 
 ### `nodera-patch/v1`
 
-The only accepted AI result format.
+The only accepted v1 AI result format. It must reuse the exact exported target kind, stable IDs and fingerprint. Nodera rejects stale or wrong-scope results.
 
-```json
-{
-  "schema": "nodera-patch/v1",
-  "target": {
-    "kind": "block",
-    "stableIds": ["nd_..."],
-    "fingerprint": "..."
-  },
-  "operations": [
-    {
-      "op": "updateAttributes",
-      "stableId": "nd_...",
-      "attributes": {}
-    }
-  ]
-}
-```
+Published schemas:
 
-The patch must reuse the exact exported target kind, stable IDs and fingerprint. Nodera rejects stale or wrong-scope results.
+- `schemas/nodera-ai-context-v1.schema.json`
+- `schemas/nodera-ai-export-v1.schema.json`
+- `schemas/nodera-patch-v1.schema.json`
+
+Authenticated editors can inspect protocol capabilities at `GET /wp-json/nodera/v1/protocol`.
 
 ## Target kinds
 
-### `block`
-
-Only selected root IDs are editable. Descendants may be visible in the exported context for understanding, but are not editable target stable IDs. This is the safest option for rewriting text/style/attributes on one selected block.
-
-### `subtree`
-
-The selected root and its descendants are materialized with stable IDs and are editable. Use this when the AI must restructure a section/group and its child blocks.
-
-### `page`
-
-The whole current Gutenberg page scope is editable. Root-level insert/move operations are allowed only for page scope.
+- `block`: only the selected root ID is editable; child structure cannot be changed.
+- `subtree`: selected root plus descendants are editable.
+- `page`: the full current Gutenberg document root is editable; root insert/move is allowed only here.
 
 ## Editor workflow
 
-1. Select block/subtree or open whole-page Nodera tools.
-2. Optionally enter a task and contract scope.
-3. Click **Copy for AI**, **Download Session JSON**, or **Download Prompt**.
-4. Give the session/prompt to an external AI.
-5. Require the AI to return only `nodera-patch/v1` JSON.
-6. Paste the JSON or upload the result file under **Import AI Result**.
-7. Click **Validate & Preview**.
-8. Review diff and quality evidence.
-9. Click **Apply to Gutenberg**.
-10. Use native Gutenberg Undo/Redo and Save/Update.
+1. Select the target.
+2. Optionally enter a task/contract scope.
+3. **Copy for AI**, **Download Session JSON**, or **Download Prompt**.
+4. Process with an external AI and request only `nodera-patch/v1` JSON.
+5. Paste/upload the result.
+6. **Validate & Preview**.
+7. Review semantic diff, deterministic quality findings and responsive Before/After preview.
+8. **Apply to Gutenberg**.
+9. Use native Gutenberg Undo/Redo and Save/Update.
 
-## Export security
+If the target changes after export, RC3 shows an explicit conflict. The user must re-export or discard the stale result; Nodera does not auto-merge it.
 
-The export endpoint:
+## Trust boundaries
 
-- requires `edit_post` capability for the current post;
-- caps request size;
-- requires `nodera-ai-context/v1`;
-- recalculates the live target fingerprint;
-- verifies exact editable stable IDs;
-- runs `ContextSanitizer`, including secret-like key redaction and block-contract-aware attribute filtering;
-- does not export WordPress nonce/cookies/provider credentials as part of the portable session.
+Export requires edit capability, bounded request size, valid `nodera-ai-context/v1`, current fingerprint, exact editable stable IDs and `ContextSanitizer` redaction. Imported JSON remains untrusted and must pass schema, exact scope/fingerprint, operation, block-contract, attribute, URL/binding/CSS and candidate-tree checks before review/Apply.
 
-## Import security
-
-Imported JSON is untrusted. Before Apply, the server validates:
-
-- schema and target kind;
-- exact editable stable IDs;
-- live target fingerprint;
-- operation count and operation fields;
-- scope boundaries;
-- registered/AI-authorable block types;
-- registered attributes and value types;
-- unsafe URLs, bindings and restricted CSS;
-- candidate tree relationships and duplicate stable IDs.
-
-A validation success produces only an in-memory candidate/diff/quality response. It never auto-saves the WordPress post.
-
-## External AI instruction
-
-A compatible external AI should follow these rules:
-
-- treat Gutenberg `post_content` as canonical;
-- edit only `target.stableIds`;
-- use only supplied block contracts;
-- prefer WordPress Core blocks and native Style Engine/Block Bindings/Global Styles capabilities;
-- never return normal HTML as a substitute for Gutenberg Core structure;
-- never return a full replacement Nodera session/page document;
-- return exactly one valid `nodera-patch/v1` JSON object.
+See `AI_PROTOCOL.md` for protocol versioning/backward compatibility and `BLOCK_ADAPTERS.md` for third-party block extension rules.
