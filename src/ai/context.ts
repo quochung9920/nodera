@@ -49,6 +49,10 @@ export async function buildAiContext(args: {
 		environment: {
 			wordpressVersion: window.NoderaSettings?.wordpress,
 			noderaVersion: window.NoderaSettings?.version,
+			nativeResponsive: window.NoderaSettings?.nativeResponsive,
+			nativeStyleStates: window.NoderaSettings?.nativeStyleStates,
+			breakpoints: window.NoderaSettings?.breakpoints,
+			provider: window.NoderaSettings?.provider?.provider,
 		},
 		limits: { maxOperations: 200, maxPayloadBytes: 524288 },
 		output: { schema: 'nodera-patch/v1' },
@@ -58,12 +62,15 @@ export async function buildAiContext(args: {
 export function oneShotPrompt(context: Record<string, unknown>): string {
 	return [
 		'You are editing a native WordPress Gutenberg document through Nodera.',
-		'Use only full block contracts included in the context. catalogIndex is discovery only.',
-		'Do not invent attributes. Do not edit outside the editable target.',
+		'Use only full authorable block contracts included in the context. catalogIndex is discovery only.',
+		'Do not invent block names or attributes. Do not edit outside the exact target scope.',
 		'Return ONLY one nodera-patch/v1 JSON object. No Markdown, HTML, Gutenberg comment markup, or explanation.',
 		'Every newly authored block must include a unique valid noderaId.',
-		'Prefer native Gutenberg blocks and structured controls over Custom CSS.',
-		'If the user supplied a reference image in this AI conversation, use it as visual guidance while respecting Nodera contracts.',
+		'Prefer WordPress Core blocks and registered Block Supports over Custom CSS.',
+		'On WordPress 7.1+, prefer native responsive style states in style.@tablet/style.@mobile and native pseudo states for supported blocks.',
+		'Prefer Core Accordion/Core Tabs families over legacy nodera/accordion or nodera/tabs.',
+		'Prefer native Block Bindings declarations for dynamic data. Never invent binding sources.',
+		'If the user supplied a reference image in this AI conversation, use it as visual guidance while respecting Nodera contracts and measured visual facts.',
 		'',
 		JSON.stringify(context, null, 2),
 	].join('\n');

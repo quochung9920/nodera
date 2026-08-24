@@ -7,9 +7,11 @@
 
 namespace Nodera\Rest;
 
+use Nodera\AI\ContextSanitizer;
 use Nodera\AI\DesignQualityGate;
 use Nodera\AI\DiffEngine;
 use Nodera\AI\PatchValidator;
+use Nodera\AI\ProviderManager;
 use Nodera\AI\TargetFingerprint;
 use Nodera\Contracts\BlockContractRegistry;
 use WP_Error;
@@ -17,21 +19,15 @@ use WP_REST_Request;
 use WP_REST_Response;
 
 /**
- * Server-authoritative contract, generation bridge and patch-validation endpoints.
+ * Server-authoritative contracts, provider generation and patch validation.
  */
 final class AIRestController {
-	public function __construct( private BlockContractRegistry $contracts ) {}
+	public function __construct( private BlockContractRegistry $contracts, private ProviderManager $providers ) {}
 
-	/**
-	 * Register routes.
-	 */
 	public function register(): void {
 		add_action( 'rest_api_init', array( $this, 'register_routes' ) );
 	}
 
-	/**
-	 * Register Nodera AI endpoints.
-	 */
 	public function register_routes(): void {
 		register_rest_route(
 			'nodera/v1',
@@ -44,6 +40,15 @@ final class AIRestController {
 					'mode' => array( 'type' => 'string', 'enum' => array( 'focused', 'expanded', 'full' ), 'default' => 'focused' ),
 					'task' => array( 'type' => 'string', 'default' => '' ),
 				),
+			)
+		);
+		register_rest_route(
+			'nodera/v1',
+			'/ai/provider',
+			array(
+				'methods'             => 'GET',
+				'permission_callback' => static fn() => current_user_can( 'edit_posts' ),
+				'callback'            => array( $this, 'get_provider_status' ),
 			)
 		);
 		register_rest_route(
@@ -66,9 +71,6 @@ final class AIRestController {
 		);
 	}
 
-	/**
-	 * Return discovery catalog and selected full contracts.
-	 */
 	public function get_contracts( WP_REST_Request $request ): WP_REST_Response {
 		$names = $request->get_param( 'blocks' );
 		$names = is_string( $names ) && '' !== $names ? explode( ',', $names ) : array();
@@ -83,11 +85,12 @@ final class AIRestController {
 		);
 	}
 
+	public function get_provider_status(): WP_REST_Response {
+		return new WP_REST_Response( $this->providers->status(), 200 );
+	}
+
 	/**
-	 * Ask a configured provider bridge for a patch, then validate it before returning it.
-	 *
-	 * Providers integrate through the `nodera_ai_generate_patch` filter and must return
-	 * a decoded nodera-patch/v1 array. Nodera itself remains provider-neutral.
+	 * Generate through an explicit extension filter or the configured server-side provider.
 	 */
 	public function generate_patch( WP_REST_Request $request ): WP_REST_Response|WP_Error {
 		$input = $request->get_json_params();
@@ -110,12 +113,13 @@ final class AIRestController {
 		if ( 'nodera-ai-context/v1' !== ( $context['schema'] ?? null ) || ! is_array( $context['target'] ?? null ) ) {
 			return new WP_Error( 'nodera_ai_invalid_context', 'Direct generation requires nodera-ai-context/v1.', array( 'status' => 400 ) );
 		}
+
 		$context_fingerprint = $context['target']['fingerprint'] ?? '';
 		$current_fingerprint = TargetFingerprint::hash( $blocks );
 		if ( ! is_string( $context_fingerprint ) || ! hash_equals( $current_fingerprint, $context_fingerprint ) ) {
 			return new WP_Error( 'nodera_ai_target_changed', 'Target changed before AI generation started.', array( 'status' => 409 ) );
 		}
-		$context_ids = is_array( $context['target']['stableIds'] ?? null ) ? array_values( array_filter( $context['target']['stableIds'], 'is_string' ) ) : array();
+		$context_ids  = is_array( $context['target']['stableIds'] ?? null ) ? array_values( array_filter( $context['target']['stableIds'], 'is_string' ) ) : array();
 		$expected_ids = array_values( array_unique( $ids ) );
 		$actual_ids   = array_values( array_unique( $context_ids ) );
 		sort( $expected_ids );
@@ -124,39 +128,46 @@ final class AIRestController {
 			return new WP_Error( 'nodera_ai_target_scope_mismatch', 'AI context target does not match the editable Gutenberg scope.', array( 'status' => 409 ) );
 		}
 
+		$sanitized = ContextSanitizer::sanitize( $context );
+		if ( is_wp_error( $sanitized ) ) {
+			return $sanitized;
+		}
+		$provider_body            = $body;
+		$provider_body['context'] = $sanitized;
+
 		/**
-		 * Filter a provider-generated Nodera patch.
+		 * Allow a trusted integration to provide a patch before the built-in provider manager.
 		 *
-		 * @param array|null      $patch   Decoded nodera-patch/v1 patch, or null when no provider is configured.
-		 * @param array           $body    Whitelisted request payload containing context and current target data.
-		 * @param WP_REST_Request $request Current REST request.
+		 * @param array|WP_Error|null $patch   Decoded nodera-patch/v1, an error, or null to continue.
+		 * @param array               $body    Sanitized provider payload.
+		 * @param WP_REST_Request     $request Current request.
 		 */
-		$patch = apply_filters( 'nodera_ai_generate_patch', null, $body, $request );
+		$patch = apply_filters( 'nodera_ai_generate_patch', null, $provider_body, $request );
+		if ( is_wp_error( $patch ) ) {
+			return $patch;
+		}
 		if ( ! is_array( $patch ) ) {
-			return new WP_Error(
-				'nodera_ai_provider_unavailable',
-				'No direct AI provider is configured. Connect a Nodera provider bridge or use the manual external-AI fallback.',
-				array( 'status' => 501 )
-			);
+			$patch = $this->providers->generate( $provider_body );
+		}
+		if ( is_wp_error( $patch ) ) {
+			return $patch;
 		}
 
 		$validated = $this->validate_body( $body, $patch );
 		if ( is_wp_error( $validated ) ) {
 			return $validated;
 		}
-		$validated['patch'] = $patch;
+		$validated['patch']    = $patch;
+		$validated['provider'] = $this->providers->status();
 		return new WP_REST_Response( $validated, 200 );
 	}
 
-	/**
-	 * Validate a patch and return candidate/diff/quality evidence.
-	 */
 	public function validate_patch( WP_REST_Request $request ): WP_REST_Response|WP_Error {
 		$body = $request->get_json_params();
 		if ( ! is_array( $body ) ) {
 			return new WP_Error( 'nodera_ai_invalid_request', 'Invalid JSON body.', array( 'status' => 400 ) );
 		}
-		$patch = is_array( $body['patch'] ?? null ) ? $body['patch'] : array();
+		$patch  = is_array( $body['patch'] ?? null ) ? $body['patch'] : array();
 		$result = $this->validate_body( $body, $patch );
 		if ( is_wp_error( $result ) ) {
 			return $result;

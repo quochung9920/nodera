@@ -7,6 +7,8 @@
 
 namespace Nodera;
 
+use Nodera\Admin\SettingsPage;
+use Nodera\AI\ProviderManager;
 use Nodera\Bindings\DynamicBindings;
 use Nodera\Blocks\BlockRegistry;
 use Nodera\Contracts\BlockContractRegistry;
@@ -17,11 +19,13 @@ use Nodera\Rest\AIRestController;
 use Nodera\Rest\DiagnosticsController;
 
 /**
- * Owns Nodera feature registration.
+ * Owns Nodera feature registration while Gutenberg remains the editor engine.
  */
 final class Plugin {
 	private static ?self $instance = null;
 	private bool $booted = false;
+	private ?BreakpointRegistry $breakpoints = null;
+	private ?ProviderManager $providers = null;
 
 	public static function instance(): self {
 		return self::$instance ??= new self();
@@ -33,26 +37,31 @@ final class Plugin {
 		}
 		$this->booted = true;
 
-		$stable_ids  = new StableBlockId();
-		$contracts   = new BlockContractRegistry();
-		$breakpoints = new BreakpointRegistry();
-		$responsive  = new ResponsiveStyleCompiler( $breakpoints );
-		$bindings    = new DynamicBindings();
-		$blocks      = new BlockRegistry();
+		$stable_ids        = new StableBlockId();
+		$contracts         = new BlockContractRegistry();
+		$this->breakpoints = new BreakpointRegistry();
+		$responsive        = new ResponsiveStyleCompiler( $this->breakpoints );
+		$bindings          = new DynamicBindings();
+		$blocks            = new BlockRegistry();
+		$this->providers   = new ProviderManager();
+		$settings          = new SettingsPage( $this->providers );
 
 		$stable_ids->register();
 		$contracts->register();
+		// The compiler is retained only for alpha.4 legacy noderaResponsive/noderaStateStyles content.
+		// New WordPress 7.1+ authoring writes directly to Gutenberg's native style attribute.
 		$responsive->register();
 		$bindings->register();
 		$blocks->register();
-		( new AIRestController( $contracts ) )->register();
-		( new DiagnosticsController( $contracts, $breakpoints ) )->register();
+		$settings->register();
+		( new AIRestController( $contracts, $this->providers ) )->register();
+		( new DiagnosticsController( $contracts, $this->breakpoints, $this->providers ) )->register();
 
 		add_action( 'enqueue_block_editor_assets', array( $this, 'enqueue_editor' ) );
 	}
 
 	/**
-	 * Enqueue the compiled editor application and install block schema filters before core blocks register.
+	 * Enqueue the single production editor runtime.
 	 */
 	public function enqueue_editor(): void {
 		$schema_bootstrap = <<<'JS'
@@ -61,6 +70,7 @@ final class Plugin {
 	wp.hooks.addFilter('blocks.registerBlockType','nodera/persistent-attributes',function(settings){
 		var attributes = Object.assign({}, settings.attributes || {});
 		attributes.noderaId = attributes.noderaId || { type: 'string' };
+		// Legacy alpha.4 attributes remain registered only so existing content keeps parsing.
 		attributes.noderaResponsive = attributes.noderaResponsive || { type: 'object' };
 		attributes.noderaStateStyles = attributes.noderaStateStyles || { type: 'object' };
 		attributes.noderaCustomCSS = attributes.noderaCustomCSS || { type: 'string' };
@@ -83,32 +93,50 @@ JS;
 		if ( file_exists( NODERA_DIR . 'build/editor.css' ) ) {
 			wp_enqueue_style( 'nodera-editor', NODERA_URL . 'build/editor.css', array( 'wp-components' ), $version );
 		}
-		$theme = wp_get_theme();
+
+		$theme             = wp_get_theme();
+		$native_responsive = version_compare( get_bloginfo( 'version' ), '7.1', '>=' );
+		$breakpoints       = $this->breakpoints ?? new BreakpointRegistry();
+		$providers         = $this->providers ?? new ProviderManager();
 		wp_add_inline_script(
 			'nodera-editor',
 			'window.NoderaSettings=' . wp_json_encode(
 				array(
-					'version'     => NODERA_VERSION,
-					'wordpress'   => get_bloginfo( 'version' ),
-					'restRoot'    => esc_url_raw( rest_url( 'nodera/v1/' ) ),
-					'nonce'       => wp_create_nonce( 'wp_rest' ),
-					'theme'       => $theme->get_stylesheet(),
-					'breakpoints' => ( new BreakpointRegistry() )->all(),
-					'dynamicMeta' => DynamicBindings::META_KEY,
+					'version'           => NODERA_VERSION,
+					'wordpress'         => get_bloginfo( 'version' ),
+					'restRoot'          => esc_url_raw( rest_url( 'nodera/v1/' ) ),
+					'nonce'             => wp_create_nonce( 'wp_rest' ),
+					'theme'             => $theme->get_stylesheet(),
+					'breakpoints'       => $this->editor_viewports( $native_responsive, $breakpoints ),
+					'nativeResponsive'  => $native_responsive,
+					'nativeStyleStates' => $native_responsive,
+					'dynamicMeta'       => DynamicBindings::META_KEY,
+					'provider'          => $providers->status(),
+					'settingsUrl'       => current_user_can( 'manage_options' ) ? admin_url( 'options-general.php?page=nodera' ) : '',
 				)
 			) . ';',
 			'before'
 		);
+	}
 
-		$native_runtime = NODERA_DIR . 'build/gutenberg-native.js';
-		if ( file_exists( $native_runtime ) ) {
-			wp_enqueue_script(
-				'nodera-gutenberg-native',
-				NODERA_URL . 'build/gutenberg-native.js',
-				array( 'nodera-editor', 'wp-api-fetch', 'wp-block-editor', 'wp-blocks', 'wp-components', 'wp-data', 'wp-element', 'wp-hooks', 'wp-i18n' ),
-				NODERA_VERSION,
-				true
-			);
+	private function editor_viewports( bool $native, BreakpointRegistry $legacy ): array {
+		if ( ! $native ) {
+			return $legacy->all();
 		}
+		$out = array(
+			'mobile' => array( 'label' => 'Mobile', 'maxWidth' => '480px' ),
+			'tablet' => array( 'label' => 'Tablet', 'maxWidth' => '782px' ),
+		);
+		if ( function_exists( 'wp_get_global_settings' ) ) {
+			$viewport = wp_get_global_settings( array( 'viewport' ) );
+			if ( is_array( $viewport ) ) {
+				foreach ( array( 'mobile', 'tablet' ) as $name ) {
+					if ( isset( $viewport[ $name ] ) && is_string( $viewport[ $name ] ) && '' !== $viewport[ $name ] ) {
+						$out[ $name ]['maxWidth'] = $viewport[ $name ];
+					}
+				}
+			}
+		}
+		return $out;
 	}
 }

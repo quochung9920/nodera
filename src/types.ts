@@ -42,8 +42,19 @@ declare global {
 			restRoot: string;
 			nonce: string;
 			theme: string;
-			breakpoints: Record<string, { label: string; maxWidth: number }>;
+			breakpoints: Record<string, { label: string; maxWidth: string | number }>;
+			nativeResponsive: boolean;
+			nativeStyleStates: boolean;
 			dynamicMeta: string;
+			provider: {
+				provider: string;
+				model: string;
+				endpoint: string;
+				configured: boolean;
+				hasApiKey: boolean;
+				keySource: string;
+			};
+			settingsUrl: string;
 		};
 	}
 }

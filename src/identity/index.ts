@@ -27,17 +27,64 @@ export function clientIdToStableId(blocks: NoderaBlock[], clientId: string): str
 	return typeof value === 'string' ? value : undefined;
 }
 
-export function reconcileIdentities(blocks: NoderaBlock[]): number {
-	const seen = new Set<string>();
-	let changed = 0;
-	const editorDispatch = dispatch('core/block-editor') as unknown as {
+function editorStore() {
+	return select('core/block-editor') as unknown as {
+		getBlocks: () => NoderaBlock[];
+		getBlock: (clientId: string) => NoderaBlock | null;
+	};
+}
+
+function editorActions() {
+	return dispatch('core/block-editor') as unknown as {
 		updateBlockAttributes: (clientId: string, attributes: Record<string, unknown>) => void;
 	};
+}
+
+/**
+ * Lazily assign IDs only to the scope Nodera is about to operate on.
+ * Opening a legacy page no longer dirties every block just because Nodera is active.
+ */
+export function ensureIdentities(blocks: NoderaBlock[]): number {
+	const scope = new Set(flattenBlocks(blocks).map((block) => block.clientId).filter(Boolean) as string[]);
+	const used = new Set<string>();
+	for (const block of flattenBlocks(editorStore().getBlocks() || [])) {
+		if (scope.has(String(block.clientId || ''))) continue;
+		const id = block.attributes?.noderaId;
+		if (typeof id === 'string' && ID_RE.test(id)) used.add(id);
+	}
+
+	let changed = 0;
 	for (const block of flattenBlocks(blocks)) {
 		if (!block.clientId) continue;
 		const id = block.attributes?.noderaId;
+		if (typeof id === 'string' && ID_RE.test(id) && !used.has(id)) {
+			used.add(id);
+			continue;
+		}
+		let next = newStableId();
+		while (used.has(next)) next = newStableId();
+		used.add(next);
+		editorActions().updateBlockAttributes(block.clientId, { noderaId: next });
+		changed += 1;
+	}
+	return changed;
+}
+
+/**
+ * Reconcile duplicate/corrupt IDs that already exist, but deliberately leave missing IDs alone.
+ */
+export function reconcileExistingIdentities(blocks: NoderaBlock[]): number {
+	const seen = new Set<string>();
+	let changed = 0;
+	for (const block of flattenBlocks(blocks)) {
+		if (!block.clientId) continue;
+		const id = block.attributes?.noderaId;
+		if (id === undefined || id === null || id === '') continue;
 		if (typeof id !== 'string' || !ID_RE.test(id) || seen.has(id)) {
-			editorDispatch.updateBlockAttributes(block.clientId, { noderaId: newStableId() });
+			let next = newStableId();
+			while (seen.has(next)) next = newStableId();
+			editorActions().updateBlockAttributes(block.clientId, { noderaId: next });
+			seen.add(next);
 			changed += 1;
 		} else {
 			seen.add(id);
@@ -46,22 +93,24 @@ export function reconcileIdentities(blocks: NoderaBlock[]): number {
 	return changed;
 }
 
+export function freshBlocks(clientIds: string[]): NoderaBlock[] {
+	return clientIds.map((clientId) => editorStore().getBlock(clientId)).filter(Boolean) as NoderaBlock[];
+}
+
 let lastSignature = '';
 let reconciling = false;
 
 export function startIdentityReconciler(): () => void {
 	const run = () => {
 		if (reconciling) return;
-		const store = select('core/block-editor') as unknown as { getBlocks: () => NoderaBlock[] };
-		const blocks = store.getBlocks() || [];
-		const signature = flattenBlocks(blocks)
-			.map((block) => `${block.clientId}:${String(block.attributes?.noderaId || '')}`)
-			.join('|');
+		const blocks = editorStore().getBlocks() || [];
+		const existing = flattenBlocks(blocks).filter((block) => block.attributes?.noderaId);
+		const signature = existing.map((block) => `${block.clientId}:${String(block.attributes?.noderaId || '')}`).join('|');
 		if (signature === lastSignature) return;
 		lastSignature = signature;
 		reconciling = true;
 		try {
-			reconcileIdentities(blocks);
+			reconcileExistingIdentities(blocks);
 		} finally {
 			reconciling = false;
 		}

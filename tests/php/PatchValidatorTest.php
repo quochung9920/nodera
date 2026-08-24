@@ -96,15 +96,6 @@ final class PatchValidatorTest extends TestCase {
 	}
 
 	public function test_unsafe_url_is_rejected(): void {
-		$registry = WP_Block_Type_Registry::get_instance();
-		$registry->register_test_type(
-			'core/button',
-			array(
-				'noderaId' => array( 'type' => 'string' ),
-				'text' => array( 'type' => 'string' ),
-				'url' => array( 'type' => 'string' ),
-			)
-		);
 		$blocks = array( array( 'name' => 'core/button', 'attributes' => array( 'noderaId' => 'nd_aaaaaaaaaaaa', 'text' => 'Go', 'url' => 'https://example.com' ), 'innerBlocks' => array() ) );
 		$patch = array(
 			'schema' => 'nodera-patch/v1',
@@ -114,5 +105,79 @@ final class PatchValidatorTest extends TestCase {
 		$result = ( new PatchValidator( new BlockContractRegistry() ) )->validate( $patch, $blocks, array( 'nd_aaaaaaaaaaaa' ) );
 		$this->assertInstanceOf( WP_Error::class, $result );
 		$this->assertSame( 'nodera_ai_unsafe_url', $result->get_error_code() );
+	}
+
+	public function test_native_responsive_style_state_is_allowed(): void {
+		$blocks = array( array( 'name' => 'core/paragraph', 'attributes' => array( 'noderaId' => 'nd_aaaaaaaaaaaa', 'content' => 'Hello' ), 'innerBlocks' => array() ) );
+		$patch = array(
+			'schema' => 'nodera-patch/v1',
+			'target' => array( 'kind' => 'subtree', 'stableIds' => array( 'nd_aaaaaaaaaaaa' ), 'fingerprint' => TargetFingerprint::hash( $blocks ) ),
+			'operations' => array(
+				array(
+					'op' => 'updateAttributes',
+					'stableId' => 'nd_aaaaaaaaaaaa',
+					'attributes' => array( 'style' => array( '@mobile' => array( 'typography' => array( 'fontSize' => '1rem' ) ) ) ),
+				),
+			),
+		);
+		$result = ( new PatchValidator( new BlockContractRegistry() ) )->validate( $patch, $blocks, array( 'nd_aaaaaaaaaaaa' ) );
+		$this->assertIsArray( $result );
+		$this->assertSame( '1rem', $result['candidate'][0]['attributes']['style']['@mobile']['typography']['fontSize'] );
+	}
+
+	public function test_unknown_native_style_state_is_rejected(): void {
+		$blocks = array( array( 'name' => 'core/paragraph', 'attributes' => array( 'noderaId' => 'nd_aaaaaaaaaaaa', 'content' => 'Hello' ), 'innerBlocks' => array() ) );
+		$patch = array(
+			'schema' => 'nodera-patch/v1',
+			'target' => array( 'kind' => 'subtree', 'stableIds' => array( 'nd_aaaaaaaaaaaa' ), 'fingerprint' => TargetFingerprint::hash( $blocks ) ),
+			'operations' => array( array( 'op' => 'updateAttributes', 'stableId' => 'nd_aaaaaaaaaaaa', 'attributes' => array( 'style' => array( '@desktop-xl' => array( 'color' => array( 'text' => 'red' ) ) ) ) ) ),
+		);
+		$result = ( new PatchValidator( new BlockContractRegistry() ) )->validate( $patch, $blocks, array( 'nd_aaaaaaaaaaaa' ) );
+		$this->assertInstanceOf( WP_Error::class, $result );
+		$this->assertSame( 'nodera_ai_invalid_style_state', $result->get_error_code() );
+	}
+
+	public function test_safe_core_post_data_binding_is_allowed(): void {
+		$blocks = array( array( 'name' => 'core/button', 'attributes' => array( 'noderaId' => 'nd_aaaaaaaaaaaa', 'text' => 'Read', 'url' => '#' ), 'innerBlocks' => array() ) );
+		$patch = array(
+			'schema' => 'nodera-patch/v1',
+			'target' => array( 'kind' => 'subtree', 'stableIds' => array( 'nd_aaaaaaaaaaaa' ), 'fingerprint' => TargetFingerprint::hash( $blocks ) ),
+			'operations' => array(
+				array(
+					'op' => 'updateAttributes',
+					'stableId' => 'nd_aaaaaaaaaaaa',
+					'attributes' => array(
+						'metadata' => array( 'bindings' => array( 'url' => array( 'source' => 'core/post-data', 'args' => array( 'field' => 'link' ) ) ) ),
+					),
+				),
+			),
+		);
+		$result = ( new PatchValidator( new BlockContractRegistry() ) )->validate( $patch, $blocks, array( 'nd_aaaaaaaaaaaa' ) );
+		$this->assertIsArray( $result );
+	}
+
+	public function test_unregistered_binding_source_is_rejected(): void {
+		$blocks = array( array( 'name' => 'core/paragraph', 'attributes' => array( 'noderaId' => 'nd_aaaaaaaaaaaa', 'content' => 'Hello' ), 'innerBlocks' => array() ) );
+		$patch = array(
+			'schema' => 'nodera-patch/v1',
+			'target' => array( 'kind' => 'subtree', 'stableIds' => array( 'nd_aaaaaaaaaaaa' ), 'fingerprint' => TargetFingerprint::hash( $blocks ) ),
+			'operations' => array(
+				array(
+					'op' => 'updateAttributes',
+					'stableId' => 'nd_aaaaaaaaaaaa',
+					'attributes' => array( 'metadata' => array( 'bindings' => array( 'content' => array( 'source' => 'evil/source', 'args' => array() ) ) ) ),
+				),
+			),
+		);
+		$result = ( new PatchValidator( new BlockContractRegistry() ) )->validate( $patch, $blocks, array( 'nd_aaaaaaaaaaaa' ) );
+		$this->assertInstanceOf( WP_Error::class, $result );
+		$this->assertSame( 'nodera_ai_binding_not_allowed', $result->get_error_code() );
+	}
+
+	public function test_legacy_nodera_tabs_are_not_ai_authorable(): void {
+		$this->assertFalse( ( new BlockContractRegistry() )->is_ai_authorable( 'nodera/tabs' ) );
+		$this->assertFalse( ( new BlockContractRegistry() )->is_ai_authorable( 'nodera/accordion' ) );
+		$this->assertTrue( ( new BlockContractRegistry() )->is_ai_authorable( 'core/tabs' ) );
+		$this->assertTrue( ( new BlockContractRegistry() )->is_ai_authorable( 'core/accordion' ) );
 	}
 }

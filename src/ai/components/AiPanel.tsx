@@ -3,14 +3,14 @@ import { Button, Notice, SelectControl, Spinner, TextareaControl } from '@wordpr
 import { __ } from '@wordpress/i18n';
 import { useMemo, useState } from '@wordpress/element';
 import type { NoderaBlock, NoderaPatch, ValidationResponse } from '../../types';
-import { flattenBlocks } from '../../identity';
+import { ensureIdentities, flattenBlocks, freshBlocks } from '../../identity';
 import { buildAiContext, oneShotPrompt } from '../context';
 import { stripBlocks, fingerprint } from '../fingerprint';
 import { normalizeAiResult } from '../normalizer';
 import { applyPatch } from '../patch';
 import { Review } from './Review';
 
-type DirectGenerationResponse = ValidationResponse & { patch: NoderaPatch };
+type DirectGenerationResponse = ValidationResponse & { patch: NoderaPatch; provider?: Record<string, unknown> };
 
 export function AiPanel(props: {
 	blocks: NoderaBlock[];
@@ -30,12 +30,21 @@ export function AiPanel(props: {
 	const [validated, setValidated] = useState<ValidationResponse | null>(null);
 	const [generating, setGenerating] = useState(false);
 	const [notice, setNotice] = useState<{ status: 'success' | 'error' | 'warning'; message: string } | null>(null);
-	const targetIds = useMemo(() => flattenBlocks(props.target).map((block) => block.attributes?.noderaId).filter((id): id is string => typeof id === 'string'), [props.target]);
+	const targetClientIds = useMemo(() => props.target.map((block) => block.clientId).filter((id): id is string => typeof id === 'string'), [props.target]);
+	const documentClientIds = useMemo(() => props.blocks.map((block) => block.clientId).filter((id): id is string => typeof id === 'string'), [props.blocks]);
+	const provider = window.NoderaSettings?.provider as { configured?: boolean; provider?: string } | undefined;
+
+	async function currentTarget() {
+		ensureIdentities(props.target);
+		await Promise.resolve();
+		return freshBlocks(targetClientIds);
+	}
 
 	async function prepareContext() {
+		const target = await currentTarget();
 		const context = await buildAiContext({
 			task,
-			target: props.target,
+			target,
 			ancestors: props.ancestors,
 			siblings: props.siblings,
 			postType: props.postType,
@@ -45,7 +54,7 @@ export function AiPanel(props: {
 			design: props.design,
 		});
 		setExported(context);
-		return context;
+		return { context, target, targetIds: flattenBlocks(target).map((block) => block.attributes?.noderaId).filter((id): id is string => typeof id === 'string') };
 	}
 
 	async function generateDirect() {
@@ -55,25 +64,25 @@ export function AiPanel(props: {
 		setPatch(null);
 		setValidated(null);
 		try {
-			const context = await prepareContext();
+			const prepared = await prepareContext();
 			const response = await apiFetch<DirectGenerationResponse>({
 				path: '/nodera/v1/ai/generate',
 				method: 'POST',
 				data: {
 					postId: props.postId,
-					context,
-					currentBlocks: stripBlocks(props.target),
-					editableStableIds: targetIds,
-					visualFacts: context.visualFacts || {},
+					context: prepared.context,
+					currentBlocks: stripBlocks(prepared.target),
+					editableStableIds: prepared.targetIds,
+					visualFacts: prepared.context.visualFacts || {},
 				},
 			});
 			setPatch(response.patch);
 			setValidated(response);
-			setNotice({ status: 'success', message: __('AI generated a validated Gutenberg patch. Review it below, then Apply locally.', 'nodera') });
+			setNotice({ status: 'success', message: __('AI generated a validated Gutenberg patch. Review it below, then Apply to Gutenberg.', 'nodera') });
 		} catch (error) {
 			setNotice({
 				status: 'warning',
-				message: error instanceof Error ? error.message : __('Direct AI generation is not available. Configure a Nodera provider bridge or use Manual external AI below.', 'nodera'),
+				message: error instanceof Error ? error.message : __('Direct AI generation is unavailable. Configure Nodera AI in Settings or use the manual fallback.', 'nodera'),
 			});
 		} finally {
 			setGenerating(false);
@@ -82,8 +91,8 @@ export function AiPanel(props: {
 
 	async function exportContext() {
 		try {
-			const context = await prepareContext();
-			await navigator.clipboard.writeText(oneShotPrompt(context));
+			const prepared = await prepareContext();
+			await navigator.clipboard.writeText(oneShotPrompt(prepared.context));
 			setNotice({ status: 'success', message: __('AI prompt and context copied. Attach a reference image in your AI chat when needed.', 'nodera') });
 		} catch (error) {
 			setNotice({ status: 'error', message: error instanceof Error ? error.message : __('Could not export AI context.', 'nodera') });
@@ -111,14 +120,15 @@ export function AiPanel(props: {
 	async function validate() {
 		try {
 			const parsed = normalizeAiResult(result);
+			const prepared = await prepareContext();
 			const response = await apiFetch<ValidationResponse>({
 				path: '/nodera/v1/ai/validate',
 				method: 'POST',
 				data: {
 					postId: props.postId,
-					currentBlocks: stripBlocks(props.target),
-					editableStableIds: targetIds,
-					visualFacts: exported?.visualFacts || {},
+					currentBlocks: stripBlocks(prepared.target),
+					editableStableIds: prepared.targetIds,
+					visualFacts: prepared.context.visualFacts || {},
 					patch: parsed,
 				},
 			});
@@ -134,37 +144,44 @@ export function AiPanel(props: {
 
 	async function apply() {
 		if (!patch || !validated) return;
-		const currentFingerprint = await fingerprint(props.target);
+		const target = await currentTarget();
+		const currentFingerprint = await fingerprint(target);
 		if (currentFingerprint !== patch.target.fingerprint) {
 			setNotice({ status: 'error', message: __('Target changed after validation. Generate/export and validate again.', 'nodera') });
 			return;
 		}
-		applyPatch(patch, props.blocks);
-		setNotice({ status: 'success', message: __('Changes applied locally to Gutenberg. Use native Undo to revert, or Save/Update to persist.', 'nodera') });
+		const currentDocument = freshBlocks(documentClientIds);
+		applyPatch(patch, currentDocument);
+		setNotice({ status: 'success', message: __('Changes applied to Gutenberg. Native Undo can revert them; Save/Update persists them.', 'nodera') });
 	}
 
 	async function copyRepairPrompt() {
 		if (!notice || notice.status !== 'error' || !exported) return;
-		const prompt = [
+		const repair = [
 			'Correct the Nodera patch validation problem below.',
 			`Error: ${notice.message}`,
 			'Do not change the target. Return nodera-patch/v1 JSON only.',
 			`Original task: ${task}`,
 			`Target: ${JSON.stringify(exported.target)}`,
 		].join('\n');
-		await navigator.clipboard.writeText(prompt);
+		await navigator.clipboard.writeText(repair);
 	}
 
 	return (
 		<div className="nodera-panel">
 			<p className="nodera-target"><strong>{__('Target', 'nodera')}:</strong> {props.target.length === props.blocks.length ? __('Whole page', 'nodera') : __('Selected Gutenberg subtree', 'nodera')}</p>
+			{provider && !provider.configured && (
+				<Notice status="info" isDismissible={false}>
+					{__('Direct AI is not configured yet. You can configure a server-side provider under Settings → Nodera, or use the manual fallback below.', 'nodera')}
+				</Notice>
+			)}
 			<TextareaControl label={__('What should Nodera change?', 'nodera')} value={task} onChange={setTask} rows={4} />
 			<SelectControl label={__('AI contract scope', 'nodera')} value={contractMode} options={[
 				{ label: __('Focused', 'nodera'), value: 'focused' },
 				{ label: __('Expanded', 'nodera'), value: 'expanded' },
 				{ label: __('Full', 'nodera'), value: 'full' },
 			]} onChange={(value) => setContractMode(value as typeof contractMode)} />
-			<Button variant="primary" onClick={generateDirect} disabled={!task.trim() || generating}>
+			<Button variant="primary" onClick={generateDirect} disabled={!task.trim() || generating || provider?.configured === false}>
 				{generating ? <><Spinner /> {__('Generating…', 'nodera')}</> : __('Generate in Gutenberg', 'nodera')}
 			</Button>
 			{notice && <Notice status={notice.status} isDismissible={false}>{notice.message}</Notice>}
@@ -173,7 +190,7 @@ export function AiPanel(props: {
 
 			<details className="nodera-manual-ai">
 				<summary>{__('Manual external AI fallback', 'nodera')}</summary>
-				<p>{__('Use this only when no direct Nodera AI provider bridge is configured.', 'nodera')}</p>
+				<p>{__('Export a bounded Gutenberg context only when you intentionally want to use an external AI chat.', 'nodera')}</p>
 				<div className="nodera-actions">
 					<Button variant="secondary" onClick={exportContext} disabled={!task.trim()}>{__('Copy for external AI', 'nodera')}</Button>
 					<Button variant="tertiary" onClick={copyContext} disabled={!exported}>{__('Copy context', 'nodera')}</Button>
