@@ -85,7 +85,7 @@ final class DynamicBindings {
 			return null;
 		}
 		$post_id = isset( $block_instance->context['postId'] ) ? (int) $block_instance->context['postId'] : 0;
-		if ( $post_id <= 0 || ! current_user_can( 'read_post', $post_id ) ) {
+		if ( ! $this->can_read_post( $post_id ) ) {
 			return null;
 		}
 		$value = get_field( $field, $post_id );
@@ -106,7 +106,7 @@ final class DynamicBindings {
 			return null;
 		}
 		$post_id = isset( $block_instance->context['postId'] ) ? (int) $block_instance->context['postId'] : 0;
-		if ( $post_id <= 0 || ! current_user_can( 'read_post', $post_id ) ) {
+		if ( ! $this->can_read_post( $post_id ) ) {
 			return null;
 		}
 		$product = wc_get_product( $post_id );
@@ -135,5 +135,19 @@ final class DynamicBindings {
 			array( 'id' => 'nodera/acf-field', 'label' => 'ACF field', 'available' => function_exists( 'get_field' ) ),
 			array( 'id' => 'nodera/woocommerce-product', 'label' => 'WooCommerce product', 'available' => function_exists( 'wc_get_product' ) ),
 		);
+	}
+
+	/**
+	 * Public published content may resolve on the frontend; private content remains capability protected.
+	 */
+	private function can_read_post( int $post_id ): bool {
+		if ( $post_id <= 0 ) {
+			return false;
+		}
+		$status = get_post_status( $post_id );
+		if ( 'publish' === $status ) {
+			return true;
+		}
+		return current_user_can( 'read_post', $post_id );
 	}
 }
