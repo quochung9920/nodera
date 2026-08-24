@@ -12,6 +12,7 @@ use Nodera\AI\DiffEngine;
 use Nodera\AI\PatchValidator;
 use Nodera\AI\TargetFingerprint;
 use Nodera\Contracts\BlockContractRegistry;
+use Nodera\Security\RequestThrottle;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -65,6 +66,11 @@ final class AIRestController {
 			return new WP_Error( 'nodera_ai_request_too_large', 'AI generation request exceeds the maximum size.', array( 'status' => 413 ) );
 		}
 
+		$post_id = (int) ( $body['postId'] ?? 0 );
+		if ( $post_id <= 0 ) {
+			return new WP_Error( 'nodera_ai_invalid_post', 'A valid editable post is required.', array( 'status' => 400 ) );
+		}
+
 		$context = is_array( $body['context'] ?? null ) ? $body['context'] : array();
 		$blocks  = is_array( $body['currentBlocks'] ?? null ) ? $body['currentBlocks'] : array();
 		$ids     = is_array( $body['editableStableIds'] ?? null ) ? array_values( array_filter( $body['editableStableIds'], 'is_string' ) ) : array();
@@ -82,6 +88,11 @@ final class AIRestController {
 		sort( $actual_ids );
 		if ( $expected_ids !== $actual_ids ) {
 			return new WP_Error( 'nodera_ai_target_scope_mismatch', 'AI context target does not match the editable Gutenberg scope.', array( 'status' => 409 ) );
+		}
+
+		$throttle = ( new RequestThrottle() )->consume( $post_id );
+		if ( is_wp_error( $throttle ) ) {
+			return $throttle;
 		}
 
 		$patch = apply_filters( 'nodera_ai_generate_patch', null, $body, $request );

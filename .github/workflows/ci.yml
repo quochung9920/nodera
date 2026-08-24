@@ -7,31 +7,40 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: nodera-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   runner-smoke:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - run: echo "github-actions-runner-ok"
 
   php-syntax:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: shivammathur/setup-php@v2
         with: { php-version: '8.1' }
-      - run: find nodera.php includes blocks tests/php -name '*.php' -print0 | xargs -0 -n1 php -l
+      - run: find nodera.php uninstall.php includes blocks tests/php -name '*.php' -print0 | xargs -0 -n1 php -l
 
   phpunit:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: shivammathur/setup-php@v2
         with: { php-version: '8.1', tools: composer:v2 }
+      - run: composer validate --strict
       - run: composer install --no-interaction --prefer-dist
       - run: vendor/bin/phpunit
 
   phpcs:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: shivammathur/setup-php@v2
@@ -41,6 +50,7 @@ jobs:
 
   js-quality:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -54,6 +64,7 @@ jobs:
 
   build-package:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -66,5 +77,5 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: nodera-package
-          path: dist/*.zip
+          path: dist/*
           if-no-files-found: error

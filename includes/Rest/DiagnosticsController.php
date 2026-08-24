@@ -38,6 +38,7 @@ final class DiagnosticsController {
 		return new WP_REST_Response(
 			array(
 				'noderaVersion'       => NODERA_VERSION,
+				'releaseStatus'       => defined( 'NODERA_RELEASE_STATUS' ) ? NODERA_RELEASE_STATUS : 'development',
 				'wordpressVersion'    => get_bloginfo( 'version' ),
 				'phpVersion'          => PHP_VERSION,
 				'theme'               => wp_get_theme()->get_stylesheet(),
@@ -47,6 +48,11 @@ final class DiagnosticsController {
 				'blockBindingsApi'    => function_exists( 'register_block_bindings_source' ),
 				'interactivityApi'    => function_exists( 'wp_interactivity_state' ) || function_exists( 'wp_interactivity_config' ),
 				'globalStylesApi'     => function_exists( 'wp_get_global_styles' ),
+				'runtimeAssets'       => array(
+					'editorJs'  => file_exists( NODERA_DIR . 'build/editor.js' ),
+					'editorCss' => file_exists( NODERA_DIR . 'build/editor.css' ),
+					'assetMeta' => file_exists( NODERA_DIR . 'build/editor.asset.php' ),
+				),
 			),
 			200
 		);

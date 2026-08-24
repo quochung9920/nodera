@@ -13,6 +13,8 @@ use WP_REST_Request;
 
 final class ProviderManager {
 	public const OPTION = 'nodera_ai_provider';
+	private const MAX_RESPONSE_BYTES = 2097152;
+	private const DEFAULT_TIMEOUT = 45;
 
 	public function __construct( private BlockContractRegistry $contracts ) {}
 
@@ -28,11 +30,20 @@ final class ProviderManager {
 			'configured' => 'none' !== $settings['provider'] && '' !== $settings['api_key'],
 			'provider'   => $settings['provider'],
 			'model'      => $settings['model'],
+			'source'     => $settings['source'],
 		);
 	}
 
 	public function settings(): void {
-		register_setting( 'nodera_ai', self::OPTION, array( 'sanitize_callback' => array( $this, 'sanitize_settings' ) ) );
+		register_setting(
+			'nodera_ai',
+			self::OPTION,
+			array(
+				'type' => 'array',
+				'sanitize_callback' => array( $this, 'sanitize_settings' ),
+				'default' => array(),
+			)
+		);
 	}
 
 	public function menu(): void {
@@ -40,7 +51,7 @@ final class ProviderManager {
 	}
 
 	public function sanitize_settings( mixed $input ): array {
-		$old = $this->get();
+		$old = $this->stored();
 		$input = is_array( $input ) ? $input : array();
 		$provider = sanitize_key( (string) ( $input['provider'] ?? 'none' ) );
 		if ( ! in_array( $provider, array( 'none', 'openai', 'anthropic', 'gemini', 'openai_compatible' ), true ) ) {
@@ -53,11 +64,18 @@ final class ProviderManager {
 		if ( ! empty( $input['clear_api_key'] ) ) {
 			$api_key = '';
 		}
+		$api_key = preg_replace( '/[\x00-\x1F\x7F]/', '', $api_key ) ?? '';
+		$api_key = substr( $api_key, 0, 512 );
+		$model = substr( sanitize_text_field( (string) ( $input['model'] ?? '' ) ), 0, 160 );
+		$endpoint = substr( esc_url_raw( (string) ( $input['endpoint'] ?? '' ) ), 0, 2048 );
+		if ( '' !== $endpoint && ! str_starts_with( strtolower( $endpoint ), 'https://' ) ) {
+			$endpoint = '';
+		}
 		return array(
 			'provider' => $provider,
-			'api_key'  => sanitize_text_field( $api_key ),
-			'model'    => sanitize_text_field( (string) ( $input['model'] ?? '' ) ),
-			'endpoint' => esc_url_raw( (string) ( $input['endpoint'] ?? '' ) ),
+			'api_key'  => $api_key,
+			'model'    => $model,
+			'endpoint' => $endpoint,
 		);
 	}
 
@@ -66,21 +84,33 @@ final class ProviderManager {
 			return;
 		}
 		$s = $this->get();
+		$stored = $this->stored();
+		$constant_source = 'constant' === $s['source'];
 		?>
 		<div class="wrap"><h1><?php echo esc_html__( 'Nodera AI Provider', 'nodera' ); ?></h1>
-		<p><?php echo esc_html__( 'Credentials stay server-side. Nodera never exposes API keys to Gutenberg or stores them in post content.', 'nodera' ); ?></p>
+		<p><?php echo esc_html__( 'Credentials stay server-side. For production deployments, wp-config.php constants can override database settings.', 'nodera' ); ?></p>
+		<?php if ( $constant_source ) : ?>
+		<p><strong><?php echo esc_html__( 'Configuration source: wp-config.php constants.', 'nodera' ); ?></strong> <?php echo esc_html__( 'Saved database values remain unchanged but are not used while constants are defined.', 'nodera' ); ?></p>
+		<?php endif; ?>
 		<form method="post" action="options.php">
 			<?php settings_fields( 'nodera_ai' ); ?>
 			<table class="form-table"><tbody>
 			<tr><th><label for="nodera-provider"><?php echo esc_html__( 'Provider', 'nodera' ); ?></label></th><td><select id="nodera-provider" name="<?php echo esc_attr( self::OPTION ); ?>[provider]">
 			<?php foreach ( array( 'none' => 'None / manual fallback', 'openai' => 'OpenAI', 'anthropic' => 'Anthropic', 'gemini' => 'Google Gemini', 'openai_compatible' => 'OpenAI-compatible endpoint' ) as $value => $label ) : ?>
-			<option value="<?php echo esc_attr( $value ); ?>" <?php selected( $s['provider'], $value ); ?>><?php echo esc_html( $label ); ?></option>
+			<option value="<?php echo esc_attr( $value ); ?>" <?php selected( $stored['provider'], $value ); ?>><?php echo esc_html( $label ); ?></option>
 			<?php endforeach; ?></select></td></tr>
-			<tr><th><label for="nodera-model"><?php echo esc_html__( 'Model', 'nodera' ); ?></label></th><td><input class="regular-text" id="nodera-model" name="<?php echo esc_attr( self::OPTION ); ?>[model]" value="<?php echo esc_attr( $s['model'] ); ?>" placeholder="gpt-5.6 / claude-* / gemini-*" /></td></tr>
-			<tr><th><label for="nodera-key"><?php echo esc_html__( 'API key', 'nodera' ); ?></label></th><td><input class="regular-text" type="password" autocomplete="new-password" id="nodera-key" name="<?php echo esc_attr( self::OPTION ); ?>[api_key]" value="" placeholder="<?php echo $s['api_key'] ? esc_attr__( 'Saved — enter a value only to replace it', 'nodera' ) : ''; ?>" /><br><label><input type="checkbox" name="<?php echo esc_attr( self::OPTION ); ?>[clear_api_key]" value="1"> <?php echo esc_html__( 'Clear saved key', 'nodera' ); ?></label></td></tr>
-			<tr><th><label for="nodera-endpoint"><?php echo esc_html__( 'Custom endpoint', 'nodera' ); ?></label></th><td><input class="regular-text code" id="nodera-endpoint" name="<?php echo esc_attr( self::OPTION ); ?>[endpoint]" value="<?php echo esc_attr( $s['endpoint'] ); ?>" placeholder="https://example.com/v1/chat/completions" /><p class="description"><?php echo esc_html__( 'Used only for OpenAI-compatible mode. HTTPS is required.', 'nodera' ); ?></p></td></tr>
+			<tr><th><label for="nodera-model"><?php echo esc_html__( 'Model', 'nodera' ); ?></label></th><td><input class="regular-text" id="nodera-model" name="<?php echo esc_attr( self::OPTION ); ?>[model]" value="<?php echo esc_attr( $stored['model'] ); ?>" /></td></tr>
+			<tr><th><label for="nodera-key"><?php echo esc_html__( 'API key', 'nodera' ); ?></label></th><td><input class="regular-text" type="password" autocomplete="new-password" id="nodera-key" name="<?php echo esc_attr( self::OPTION ); ?>[api_key]" value="" placeholder="<?php echo $stored['api_key'] ? esc_attr__( 'Saved — enter a value only to replace it', 'nodera' ) : ''; ?>" /><br><label><input type="checkbox" name="<?php echo esc_attr( self::OPTION ); ?>[clear_api_key]" value="1"> <?php echo esc_html__( 'Clear saved key', 'nodera' ); ?></label></td></tr>
+			<tr><th><label for="nodera-endpoint"><?php echo esc_html__( 'Custom endpoint', 'nodera' ); ?></label></th><td><input class="regular-text code" id="nodera-endpoint" name="<?php echo esc_attr( self::OPTION ); ?>[endpoint]" value="<?php echo esc_attr( $stored['endpoint'] ); ?>" placeholder="https://example.com/v1/chat/completions" /><p class="description"><?php echo esc_html__( 'Used only for OpenAI-compatible mode. HTTPS and WordPress safe-URL validation are required.', 'nodera' ); ?></p></td></tr>
 			</tbody></table><?php submit_button(); ?>
-		</form></div>
+		</form>
+		<h2><?php echo esc_html__( 'Production constants', 'nodera' ); ?></h2>
+		<pre><code>define( 'NODERA_AI_PROVIDER', 'openai' );
+define( 'NODERA_AI_MODEL', 'your-model' );
+define( 'NODERA_AI_API_KEY', '...' );
+// Optional for openai_compatible only:
+define( 'NODERA_AI_ENDPOINT', 'https://example.com/v1/chat/completions' );</code></pre>
+		</div>
 		<?php
 	}
 
@@ -109,10 +139,33 @@ final class ProviderManager {
 		return is_array( $decoded ) ? $decoded : new WP_Error( 'nodera_ai_provider_invalid_json', 'The AI provider did not return valid nodera-patch/v1 JSON.', array( 'status' => 502 ) );
 	}
 
-	private function get(): array {
+	private function stored(): array {
 		$value = get_option( self::OPTION, array() );
 		$value = is_array( $value ) ? $value : array();
 		return wp_parse_args( $value, array( 'provider' => 'none', 'api_key' => '', 'model' => '', 'endpoint' => '' ) );
+	}
+
+	private function get(): array {
+		$value = $this->stored();
+		$source = 'database';
+		$map = array(
+			'provider' => 'NODERA_AI_PROVIDER',
+			'api_key'  => 'NODERA_AI_API_KEY',
+			'model'    => 'NODERA_AI_MODEL',
+			'endpoint' => 'NODERA_AI_ENDPOINT',
+		);
+		foreach ( $map as $key => $constant ) {
+			if ( defined( $constant ) ) {
+				$constant_value = constant( $constant );
+				if ( is_string( $constant_value ) ) {
+					$value[ $key ] = trim( $constant_value );
+					$source = 'constant';
+				}
+			}
+		}
+		$value['provider'] = in_array( $value['provider'], array( 'none', 'openai', 'anthropic', 'gemini', 'openai_compatible' ), true ) ? $value['provider'] : 'none';
+		$value['source'] = $source;
+		return $value;
 	}
 
 	private function prompt( array $context ): string {
@@ -166,8 +219,8 @@ final class ProviderManager {
 	}
 
 	private function compatible( array $s, string $prompt ): string|WP_Error {
-		if ( ! wp_http_validate_url( $s['endpoint'] ) || ! str_starts_with( $s['endpoint'], 'https://' ) ) {
-			return new WP_Error( 'nodera_ai_endpoint_invalid', 'Custom AI endpoint must be a valid HTTPS URL.', array( 'status' => 400 ) );
+		if ( ! wp_http_validate_url( $s['endpoint'] ) || ! str_starts_with( strtolower( $s['endpoint'] ), 'https://' ) ) {
+			return new WP_Error( 'nodera_ai_endpoint_invalid', 'Custom AI endpoint must be a valid public HTTPS URL.', array( 'status' => 400 ) );
 		}
 		return $this->request_text(
 			$s['endpoint'],
@@ -178,11 +231,17 @@ final class ProviderManager {
 	}
 
 	private function request_text( string $url, array $headers, array $body, callable $extract ): string|WP_Error {
-		$response = wp_remote_post( $url, array(
-			'timeout' => 75,
-			'redirection' => 2,
+		$json_body = wp_json_encode( $body );
+		if ( ! is_string( $json_body ) ) {
+			return new WP_Error( 'nodera_ai_provider_encode', 'Could not encode the provider request.', array( 'status' => 500 ) );
+		}
+		$timeout = max( 10, min( 90, (int) apply_filters( 'nodera_ai_provider_timeout', self::DEFAULT_TIMEOUT, $url ) ) );
+		$response = wp_safe_remote_post( $url, array(
+			'timeout' => $timeout,
+			'redirection' => 0,
+			'limit_response_size' => self::MAX_RESPONSE_BYTES,
 			'headers' => array_merge( array( 'Content-Type' => 'application/json' ), $headers ),
-			'body' => wp_json_encode( $body ),
+			'body' => $json_body,
 			'data_format' => 'body',
 		) );
 		if ( is_wp_error( $response ) ) {
@@ -190,6 +249,9 @@ final class ProviderManager {
 		}
 		$status = (int) wp_remote_retrieve_response_code( $response );
 		$raw = (string) wp_remote_retrieve_body( $response );
+		if ( strlen( $raw ) >= self::MAX_RESPONSE_BYTES ) {
+			return new WP_Error( 'nodera_ai_provider_response_too_large', 'AI provider response exceeded the maximum size.', array( 'status' => 502 ) );
+		}
 		if ( $status < 200 || $status >= 300 ) {
 			return new WP_Error( 'nodera_ai_provider_http', 'AI provider request failed with HTTP ' . $status . '.', array( 'status' => 502 ) );
 		}
