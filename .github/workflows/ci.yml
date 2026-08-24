@@ -44,7 +44,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: 22, cache: npm }
+        with: { node-version: 22 }
       - run: npm install --no-audit --no-fund
       - run: npm run typecheck
       - run: npm run lint:js
@@ -57,7 +57,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: 22, cache: npm }
+        with: { node-version: 22 }
       - run: npm install --no-audit --no-fund
       - run: rm -rf build && npm run build
       - run: test ! -e build/gutenberg-native.js
