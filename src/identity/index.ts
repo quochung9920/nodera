@@ -27,7 +27,23 @@ export function clientIdToStableId(blocks: NoderaBlock[], clientId: string): str
 	return typeof value === 'string' ? value : undefined;
 }
 
+function freshStableId(reserved: Set<string>): string {
+	let id = newStableId();
+	while (reserved.has(id)) id = newStableId();
+	return id;
+}
+
 function ensureIdentityList(blocks: NoderaBlock[]): number {
+	const activeClientIds = new Set(blocks.map((block) => block.clientId).filter((value): value is string => typeof value === 'string'));
+	const store = select('core/block-editor') as unknown as { getBlocks?: () => NoderaBlock[] };
+	const pageBlocks = flattenBlocks(store.getBlocks?.() || blocks);
+	const reserved = new Set<string>();
+	for (const block of pageBlocks) {
+		if (block.clientId && activeClientIds.has(block.clientId)) continue;
+		const id = block.attributes?.noderaId;
+		if (typeof id === 'string' && ID_RE.test(id)) reserved.add(id);
+	}
+
 	const seen = new Set<string>();
 	let changed = 0;
 	const editorDispatch = dispatch('core/block-editor') as unknown as {
@@ -36,8 +52,10 @@ function ensureIdentityList(blocks: NoderaBlock[]): number {
 	for (const block of blocks) {
 		if (!block.clientId) continue;
 		const id = block.attributes?.noderaId;
-		if (typeof id !== 'string' || !ID_RE.test(id) || seen.has(id)) {
-			editorDispatch.updateBlockAttributes(block.clientId, { noderaId: newStableId() });
+		if (typeof id !== 'string' || !ID_RE.test(id) || reserved.has(id) || seen.has(id)) {
+			const next = freshStableId(new Set([...reserved, ...seen]));
+			editorDispatch.updateBlockAttributes(block.clientId, { noderaId: next });
+			seen.add(next);
 			changed += 1;
 		} else {
 			seen.add(id);
