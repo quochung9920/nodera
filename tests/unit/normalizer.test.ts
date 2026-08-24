@@ -14,4 +14,8 @@ describe('normalizeAiResult', () => {
 	it('rejects an unknown schema', () => {
 		expect(() => normalizeAiResult('{"schema":"other"}')).toThrow('Expected nodera-patch/v1');
 	});
+
+	it('rejects a portable export session as an AI result', () => {
+		expect(() => normalizeAiResult('{"schema":"nodera-ai-export/v1","sessionId":"nds_test"}')).toThrow('Expected nodera-patch/v1');
+	});
 });
