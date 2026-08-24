@@ -1,17 +1,22 @@
 # Known limitations
 
-Version `0.1.0-rc.2` is a release candidate, not a production-certified stable release.
+Version `0.1.0-rc.3` is a commercial-hardening release candidate, not a production-certified stable release.
 
-- The primary portable Export → external AI → Import workflow requires no API key. External AI quality, JSON compliance and reasoning quality remain model-dependent; every returned patch must still be reviewed before Apply.
-- Optional direct generation still requires a site administrator to configure a supported provider/model/API key. Provider availability, model identifiers, quotas, pricing and behavior are controlled by third parties.
-- Portable sessions intentionally contain only bounded/sanitized editor context. They are not a full WordPress backup, do not contain a second canonical document and cannot preserve arbitrary hidden third-party runtime state that is not represented in registered block contracts.
-- Block-only export keeps descendants outside the editable stable-ID scope. Use selected-subtree export when the external AI must restructure child blocks.
-- New responsive editing uses WordPress 7.1 native viewport style states. The old `noderaResponsive` compiler remains only to render/migrate alpha.4 content.
-- Native block-instance pseudo states are exposed only where WordPress 7.1 Core supports them; restricted Custom CSS remains a fallback for unsupported effects.
-- Legacy `nodera/accordion` and `nodera/tabs` remain registered so existing content renders. New content and AI output use WordPress Core Accordion/Tabs; automatic conversion is intentionally not performed.
-- Dynamic Data exposes safe Core Block Bindings workflows. ACF and WooCommerce adapters are not bundled in this release candidate.
-- Global Design writes directly to WordPress Global Styles and intentionally exposes a curated surface instead of recreating the full Site Editor UI.
-- Browser visual capture only measures same-origin editor DOM/iframe nodes reachable by the current session and does not claim pixel-level screenshot similarity.
-- Developer dependency lockfiles are not yet committed. The production runtime itself is prebuilt and packaged, but a long-lived stable release should add lockfiles so source rebuilds are fully reproducible.
-- Manual screen-reader certification and broad commercial theme/plugin compatibility still require separate real-environment evidence.
-- A fully green real-browser acceptance run on a maintained WordPress 7.1 environment is still required before Nodera should be described as production-certified. See `PRODUCTION_READINESS.md`.
+- Portable Export → external AI → Import needs no API key, but external model quality and JSON compliance remain model-dependent; every returned patch must be reviewed before Apply.
+- Portable sessions are bounded/sanitized transport context, not a WordPress backup or second canonical document. Hidden third-party runtime state that is absent from registered block contracts cannot be reconstructed by Nodera.
+- Export integrity is SHA-256 transport evidence, not a signature or authorization mechanism. Imported output remains untrusted and must pass the full validator.
+- Stale-session conflicts intentionally require a fresh export or discard. RC3 does not perform automatic three-way AI patch merging.
+- Unknown third-party blocks remain AI read-only unless a trusted `BlockContractRegistry` adapter explicitly opts them into authoring. Kadence, GenerateBlocks, Spectra and Stackable adapters are not bundled.
+- ACF scalar and WooCommerce product Block Bindings are available only when those plugins are detected. AI-authored bindings remain intentionally more restrictive than manual editor bindings.
+- Global Design writes to WordPress Global Styles but intentionally exposes a curated surface instead of recreating the Site Editor.
+- Visual capture is bounded to same-origin editor DOM/iframe facts and does not claim screenshot-level or pixel-perfect visual matching.
+- Native pseudo states are exposed only where the WordPress 7.1 Core block supports them. Restricted Custom CSS remains a fallback for unsupported effects.
+- Legacy `nodera/accordion` and `nodera/tabs` remain registered for old content; new content uses Core Accordion/Tabs and automatic conversion is intentionally not performed.
+- Direct npm/Composer dependencies are pinned in RC3, but generated `package-lock.json` and `composer.lock` are still required before stable promotion. The stable verification command fails while they are absent; lockfiles must be generated/reviewed in a trusted networked release environment rather than fabricated.
+- The signed commercial updater is inert until a manifest URL and public verification key are explicitly configured. Nodera does not ship an update/licensing backend service in this repository.
+- Repository-level branch protection/required checks must be enabled in GitHub settings; plugin runtime code cannot enforce repository governance.
+- The compatibility matrix records intended support but real WordPress/PHP/theme/plugin/browser certification remains `NOT YET VERIFIED` until those environments are actually tested.
+- Manual screen-reader certification remains required before a broad commercial stable claim.
+- GitHub Actions for this repository has shown runner/storage failures even for the zero-dependency runner smoke job; a fully trustworthy green CI run is still required before stable promotion.
+
+See `PRODUCTION_READINESS.md`, `COMPATIBILITY_MATRIX.md`, `AI_PROTOCOL.md` and `COMMERCIAL_DISTRIBUTION.md`.
