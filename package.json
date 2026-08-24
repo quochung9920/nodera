@@ -9,8 +9,9 @@
   "scripts": {
     "start": "wp-scripts start src/editor.tsx --output-path=build",
     "build:editor": "wp-scripts build src/editor.tsx --output-path=build",
-    "build:modules": "wp-scripts build src/blocks/accordion-view.js src/blocks/tabs-view.js --output-path=build --experimental-modules",
-    "build": "npm run build:editor && npm run build:modules",
+    "build:modules": "wp-scripts build src/blocks/accordion-view.js src/blocks/tabs-view.js --output-path=build/modules --experimental-modules",
+    "build:finalize": "node scripts/finalize-build.mjs",
+    "build": "npm run build:editor && npm run build:modules && npm run build:finalize",
     "typecheck": "tsc --noEmit",
     "lint:js": "wp-scripts lint-js src",
     "lint:css": "wp-scripts lint-style src/**/*.css blocks/**/*.css",
