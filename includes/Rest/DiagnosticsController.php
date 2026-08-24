@@ -64,6 +64,11 @@ final class DiagnosticsController {
 					'enabled'        => true,
 					'apiKeyRequired' => false,
 					'protocol'       => $this->protocols->descriptor(),
+					'visualFidelity' => array(
+						'version'            => '2.0',
+						'devicePreview'      => array( 'Desktop', 'Tablet', 'Mobile' ),
+						'designContextRoute' => '/nodera/v1/design-context',
+					),
 				),
 				'breakpoints'        => $this->breakpoints->all(),
 				'dynamicSources'     => $this->bindings->available_sources(),
@@ -77,9 +82,11 @@ final class DiagnosticsController {
 				'interactivityApi'   => function_exists( 'wp_interactivity_state' ) || function_exists( 'wp_interactivity_config' ),
 				'globalStylesApi'    => function_exists( 'wp_get_global_styles' ),
 				'runtimeAssets'      => array(
-					'editorJs'  => file_exists( NODERA_DIR . 'build/editor.js' ),
-					'editorCss' => file_exists( NODERA_DIR . 'build/editor.css' ),
-					'assetMeta' => file_exists( NODERA_DIR . 'build/editor.asset.php' ),
+					'editorJs'          => file_exists( NODERA_DIR . 'build/editor.js' ),
+					'editorCss'         => file_exists( NODERA_DIR . 'build/editor.css' ),
+					'assetMeta'         => file_exists( NODERA_DIR . 'build/editor.asset.php' ),
+					'visualFidelityJs'  => file_exists( NODERA_DIR . 'build/visual-fidelity.js' ),
+					'visualFidelityCss' => file_exists( NODERA_DIR . 'build/visual-fidelity.css' ),
 				),
 			),
 			200

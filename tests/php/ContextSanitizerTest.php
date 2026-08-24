@@ -53,4 +53,32 @@ final class ContextSanitizerTest extends TestCase {
 		$this->assertSame( '[redacted]', $attrs['metadata']['authorization'] );
 		$this->assertSame( 'value', $attrs['metadata']['safe'] );
 	}
+
+	public function test_visual_and_design_urls_drop_query_credentials(): void {
+		$context = array(
+			'schema' => 'nodera-ai-context/v1',
+			'design' => array(
+				'global' => array(
+					'styles' => array( 'background' => 'url(https://assets.example.com/pattern.svg?sig=private#fragment)' ),
+				),
+			),
+			'visualFacts' => array(
+				'viewports' => array(
+					'desktop' => array(
+						'nodes' => array(
+							'nd_abcdefghijkl' => array(
+								'media' => array( 'src' => 'https://cdn.example.com/media/hero.jpg?token=secret&expires=9#frag' ),
+								'styles' => array( 'background-image' => 'url("https://cdn.example.com/background.webp?signature=secret#x")' ),
+							),
+						),
+					),
+				),
+			),
+		);
+		$result = ( new ContextSanitizer( new BlockContractRegistry() ) )->sanitize( $context );
+		$node = $result['visualFacts']['viewports']['desktop']['nodes']['nd_abcdefghijkl'];
+		$this->assertSame( 'https://cdn.example.com/media/hero.jpg', $node['media']['src'] );
+		$this->assertSame( 'url("https://cdn.example.com/background.webp")', $node['styles']['background-image'] );
+		$this->assertSame( 'url("https://assets.example.com/pattern.svg")', $result['design']['global']['styles']['background'] );
+	}
 }

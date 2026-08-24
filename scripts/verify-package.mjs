@@ -17,6 +17,8 @@ for (const runtime of [
 	'build/editor.js',
 	'build/editor.asset.php',
 	'build/editor.css',
+	'build/visual-fidelity.js',
+	'build/visual-fidelity.css',
 	'build/accordion-view.js',
 	'build/accordion-view.asset.php',
 	'build/tabs-view.js',
@@ -29,6 +31,7 @@ for (const runtime of [
 	'includes/Commercial/EntitlementManager.php',
 	'includes/Compatibility/CompatibilityRegistry.php',
 	'includes/Migrations/MigrationManager.php',
+	'includes/Rest/VisualContextController.php',
 	'schemas/nodera-ai-context-v1.schema.json',
 	'schemas/nodera-ai-export-v1.schema.json',
 	'schemas/nodera-patch-v1.schema.json',
@@ -58,6 +61,10 @@ for (const blockJson of ['blocks/accordion/block.json', 'blocks/tabs/block.json'
 const runtimeSource = fs.readFileSync('build/editor.js', 'utf8');
 for (const marker of ['/nodera/v1/ai/export', 'nodera-ai-export/v1', 'nodera-patch/v1', 'Copy for AI', 'Import AI Result']) {
 	if (!runtimeSource.includes(marker)) throw new Error(`Packaged editor runtime missing portable AI marker: ${marker}`);
+}
+const visualSource = fs.readFileSync('build/visual-fidelity.js', 'utf8');
+for (const marker of ['Download Multimodal Bundle', 'Download Correction Bundle', 'layoutGraph', 'setDeviceType']) {
+	if (!visualSource.includes(marker)) throw new Error(`Packaged visual runtime missing marker: ${marker}`);
 }
 if (fs.existsSync('build/gutenberg-native.js')) throw new Error('Temporary gutenberg-native bridge must not ship.');
 const expectedLine = fs.readFileSync(checksumFile, 'utf8').trim();

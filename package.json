@@ -1,6 +1,6 @@
 {
   "name": "nodera",
-  "version": "0.1.0-rc.3",
+  "version": "0.1.0-rc.4",
   "private": true,
   "description": "Nodera — AI-native WordPress Builder",
   "engines": {
@@ -19,8 +19,9 @@
     "test:e2e": "playwright test",
     "verify:deps": "node scripts/verify-dependencies.mjs",
     "verify:lockfiles": "node scripts/verify-lockfiles.mjs",
+    "verify:visual": "node scripts/verify-visual-fidelity.mjs",
     "verify:runtime": "node scripts/verify-runtime.mjs",
-    "check:quality": "npm run verify:deps && npm run typecheck && npm run lint:js && npm run lint:css && npm run test:unit && npm run build && npm run verify:runtime",
+    "check:quality": "npm run verify:deps && npm run typecheck && npm run lint:js && npm run lint:css && npm run test:unit && npm run build && npm run verify:visual && npm run verify:runtime",
     "package": "node scripts/package.mjs",
     "verify:package": "node scripts/verify-package.mjs",
     "release:verify": "npm run check:quality && npm run package && npm run verify:package",

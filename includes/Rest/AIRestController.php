@@ -20,7 +20,8 @@ use WP_REST_Request;
 use WP_REST_Response;
 
 final class AIRestController {
-	private const MAX_CONTEXT_REQUEST_BYTES = 1048576;
+	// Visual Fidelity v2 can include bounded measurements for three native device previews.
+	private const MAX_CONTEXT_REQUEST_BYTES = 4194304;
 	private const MAX_VALIDATE_REQUEST_BYTES = 2097152;
 
 	public function __construct( private BlockContractRegistry $contracts ) {}

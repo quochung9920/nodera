@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Nodera — AI-native WordPress Builder
  * Description: AI-native professional authoring for the native WordPress block editor.
- * Version: 0.1.0-rc.3
+ * Version: 0.1.0-rc.4
  * Requires at least: 7.1
  * Requires PHP: 8.1
  * Text Domain: nodera
@@ -12,7 +12,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'NODERA_VERSION', '0.1.0-rc.3' );
+define( 'NODERA_VERSION', '0.1.0-rc.4' );
 define( 'NODERA_RELEASE_STATUS', 'release-candidate' );
 define( 'NODERA_MIN_WP', '7.1' );
 define( 'NODERA_MIN_PHP', '8.1' );
@@ -34,7 +34,7 @@ function nodera_runtime_issues(): array {
 	if ( is_string( $wp_version ) && version_compare( $wp_version, NODERA_MIN_WP, '<' ) ) {
 		$issues[] = sprintf( 'WordPress %s or newer is required.', NODERA_MIN_WP );
 	}
-	foreach ( array( 'build/editor.js', 'build/editor.asset.php', 'build/editor.css' ) as $asset ) {
+	foreach ( array( 'build/editor.js', 'build/editor.asset.php', 'build/editor.css', 'build/visual-fidelity.js', 'build/visual-fidelity.css' ) as $asset ) {
 		if ( ! file_exists( NODERA_DIR . $asset ) ) {
 			$issues[] = 'Required runtime asset is missing: ' . $asset;
 		}
@@ -101,6 +101,7 @@ if ( file_exists( $autoload ) ) {
 		'includes/Commercial/UpdateClient.php',
 		'includes/Admin/Onboarding.php',
 		'includes/Rest/AIRestController.php',
+		'includes/Rest/VisualContextController.php',
 		'includes/Rest/DiagnosticsController.php',
 		'includes/Plugin.php',
 	);

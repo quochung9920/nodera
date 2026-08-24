@@ -29,7 +29,13 @@ final class ContextSanitizer {
 				$out['context'][ $key ] = $this->blocks( $out['context'][ $key ] );
 			}
 		}
-		return $this->walk( $out, 0 );
+		$out = $this->walk( $out, 0 );
+		foreach ( array( 'design', 'visualFacts' ) as $key ) {
+			if ( isset( $out[ $key ] ) && is_array( $out[ $key ] ) ) {
+				$out[ $key ] = $this->sanitize_contextual_urls( $out[ $key ], 0 );
+			}
+		}
+		return $out;
 	}
 
 	private function blocks( array $blocks ): array {
@@ -79,5 +85,57 @@ final class ContextSanitizer {
 			$out[ $key ] = $this->walk( $item, $depth + 1 );
 		}
 		return $out;
+	}
+
+	/**
+	 * Measured/resolved design URLs are contextual hints only. Signed-CDN
+	 * credentials can appear in query strings or CSS url() values, so strip them.
+	 */
+	private function sanitize_contextual_urls( mixed $value, int $depth ): mixed {
+		if ( $depth > self::MAX_DEPTH ) {
+			return null;
+		}
+		if ( is_string( $value ) ) {
+			if ( str_contains( strtolower( $value ), 'url(' ) ) {
+				return preg_replace_callback(
+					'/url\(\s*(["\']?)(https?:\/\/[^)"\']+)\1\s*\)/i',
+					fn( array $matches ): string => 'url("' . $this->strip_url_credentials( trim( $matches[2] ) ) . '")',
+					$value
+				) ?? '';
+			}
+			return $value;
+		}
+		if ( ! is_array( $value ) ) {
+			return $value;
+		}
+		$out = array();
+		$count = 0;
+		foreach ( $value as $key => $item ) {
+			if ( ++$count > 500 ) {
+				break;
+			}
+			$name = is_string( $key ) ? strtolower( $key ) : '';
+			if ( in_array( $name, array( 'src', 'currentsrc', 'poster' ), true ) && is_string( $item ) ) {
+				$out[ $key ] = $this->strip_url_credentials( $item );
+				continue;
+			}
+			$out[ $key ] = $this->sanitize_contextual_urls( $item, $depth + 1 );
+		}
+		return $out;
+	}
+
+	private function strip_url_credentials( string $url ): string {
+		if ( ! preg_match( '#^https?://#i', $url ) ) {
+			return $url;
+		}
+		$parts = wp_parse_url( $url );
+		if ( ! is_array( $parts ) || empty( $parts['host'] ) ) {
+			return '';
+		}
+		$scheme = isset( $parts['scheme'] ) ? strtolower( (string) $parts['scheme'] ) : 'https';
+		$host   = strtolower( (string) $parts['host'] );
+		$port   = isset( $parts['port'] ) ? ':' . (int) $parts['port'] : '';
+		$path   = isset( $parts['path'] ) ? (string) $parts['path'] : '';
+		return $scheme . '://' . $host . $port . $path;
 	}
 }

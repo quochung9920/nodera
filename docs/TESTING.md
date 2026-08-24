@@ -14,6 +14,7 @@ npm run test:unit
 vendor/bin/phpcs
 vendor/bin/phpunit
 rm -rf build && npm run build
+npm run verify:visual
 npm run verify:runtime
 npm run package
 npm run verify:package
@@ -26,6 +27,8 @@ npm run release:stable:verify
 ```
 
 Do not hand-author lockfiles. Generate them from the pinned manifests in a trusted networked release environment, review dependency changes, then commit them.
+
+`verify:visual` syntax-checks the shipped Visual Fidelity runtime, rejects source/build drift and requires the multi-viewport/bundle/layout/fingerprint/correction markers. `verify:runtime` and `verify:package` additionally require the visual runtime/assets and VisualContextController.
 
 ## CI matrix
 
@@ -44,7 +47,7 @@ npm run test:e2e
 
 Projects are configured for Chromium, Firefox and WebKit. Browser tests are skipped when credentials/base URL are absent; a skip is never a PASS.
 
-RC3 acceptance covers:
+RC4 acceptance covers the RC3 flows plus Visual Fidelity 2.0:
 
 - direct Gutenberg Block Toolbar/Inspector integration;
 - root-only lazy identity and a 100-block no-mass-ID smoke;
@@ -54,7 +57,28 @@ RC3 acceptance covers:
 - protocol 1.0/integrity metadata on the export endpoint;
 - stale-session conflict UX before server Validate/Apply;
 - keyboard activation and accessible upload control;
-- dynamic-source capability exposure.
+- dynamic-source capability exposure;
+- Visual Fidelity runtime presence;
+- authenticated resolved design-context endpoint;
+- native `core/editor` Desktop → Tablet → Mobile device switching and exact restoration;
+- loading Visual Fidelity does not materialize descendant stable IDs.
+
+`tests/e2e/visual-fidelity.spec.ts` contains the first real-browser visual-runtime/device-preview acceptance. Stable certification must extend that evidence to actual multimodal bundle downloads, representative PNG/SVG captures, reference files, QA fixtures and correction bundles on maintained WordPress environments.
+
+## Visual fidelity manual acceptance
+
+For each supported browser, use a page containing headings, buttons, images, Group/Columns/Grid/Flex layouts and responsive styles:
+
+1. select a block and export block-only Visual AI; verify descendants remain read-only/unidentified until subtree scope is chosen;
+2. export the same target as subtree and as whole page;
+3. verify the original Gutenberg device preview is restored after each export/QA run;
+4. unzip the bundle and inspect `session.json`, `prompt.txt`, `visual/manifest.json`, three visual captures and optional references;
+5. verify visual manifest geometry corresponds to the editor at Desktop/Tablet/Mobile;
+6. verify media/CSS URLs in `session.json` have no query credentials/fragments;
+7. process the same reference task with at least two external multimodal AI clients and import their `nodera-patch/v1` output through the normal validator;
+8. create controlled overflow/clipping/low-contrast/distorted-image/mobile-heading fixtures and verify Visual QA findings;
+9. export a correction bundle, verify it contains a fresh session/fingerprint plus QA issues, then repeat the AI/import loop;
+10. confirm Apply remains native Gutenberg state: Undo/Redo, Save, Reload and frontend rendering work normally.
 
 ## Full commercial acceptance
 
@@ -67,10 +91,11 @@ The packaged ZIP should additionally be exercised end-to-end:
 5. Validate → semantic Diff → quality review → Before/After preview;
 6. Apply → native Undo/Redo → Save → Reload → frontend;
 7. stale fingerprint, scope escape, unsafe URL/CSS, invalid block/attribute and duplicate-ID negatives;
-8. ACF/WooCommerce binding tests when those integrations are enabled;
-9. 100-block performance/request-loop smoke;
-10. keyboard and manual screen-reader review;
-11. signed-update manifest/package verification against the real commercial update endpoint;
-12. rollback to the prior compatible signed release without modifying Gutenberg `post_content`.
+8. Visual AI multimodal export/reference/QA/correction loop;
+9. ACF/WooCommerce binding tests when those integrations are enabled;
+10. 100-block performance/request-loop and visual-export-size smoke;
+11. keyboard and manual screen-reader review;
+12. signed-update manifest/package verification against the real commercial update endpoint;
+13. rollback to the prior compatible signed release without modifying Gutenberg `post_content`.
 
-See `PRODUCTION_READINESS.md` and `COMPATIBILITY_MATRIX.md` before promoting an RC to stable.
+See `PRODUCTION_READINESS.md`, `VISUAL_AI_PORTABILITY.md` and `COMPATIBILITY_MATRIX.md` before promoting an RC to stable.

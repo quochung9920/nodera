@@ -70,6 +70,7 @@ jobs:
       - run: npm run lint:js
       - run: npm run lint:css
       - run: npm run test:unit
+      - run: npm run verify:visual
       - run: npm run verify:runtime
 
   build-package:
@@ -82,6 +83,7 @@ jobs:
       - run: npm install --no-audit --no-fund
       - run: npm run verify:deps
       - run: rm -rf build && npm run build
+      - run: npm run verify:visual
       - run: npm run verify:runtime
       - run: npm run package
       - run: npm run verify:package

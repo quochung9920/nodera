@@ -7,6 +7,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) define( 'ABSPATH', __DIR__ . '/fixtures/wordpress/' );
 if ( ! function_exists( 'wp_json_encode' ) ) { function wp_json_encode( mixed $value, int $flags = 0 ): string|false { return json_encode( $value, $flags ); } }
+if ( ! function_exists( 'wp_parse_url' ) ) { function wp_parse_url( string $url, int $component = -1 ): mixed { return -1 === $component ? parse_url( $url ) : parse_url( $url, $component ); } }
 if ( ! function_exists( 'apply_filters' ) ) { function apply_filters( string $hook_name, mixed $value ): mixed { unset( $hook_name ); return $value; } }
 if ( ! function_exists( 'do_action' ) ) { function do_action( string $hook_name, mixed ...$args ): void { unset( $hook_name, $args ); } }
 if ( ! function_exists( 'did_action' ) ) { function did_action( string $hook_name ): int { return 'init' === $hook_name ? 1 : 0; } }
