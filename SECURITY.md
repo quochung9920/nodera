@@ -1,6 +1,10 @@
 # Security Policy
 
-Nodera treats AI output and provider responses as untrusted input. Security-sensitive changes should preserve Gutenberg scope validation, target fingerprints, block contracts, context redaction, URL/CSS restrictions and explicit user Apply.
+Nodera treats external AI output, direct-provider responses and imported JSON as untrusted input. Security-sensitive changes must preserve Gutenberg scope validation, target fingerprints, block contracts, context redaction, URL/CSS restrictions and explicit user Apply.
+
+Portable `nodera-ai-export/v1` sessions are generated only after capability, fingerprint and editable-scope checks. The export context is passed through `ContextSanitizer` before it leaves WordPress. Session IDs are trace identifiers only; they do not create a second document, history or revision store.
+
+Imported `nodera-patch/v1` data must never bypass server validation, candidate construction, semantic diff/quality review or explicit Apply. A stale or wrong-scope patch must be rejected rather than merged heuristically.
 
 ## Reporting a vulnerability
 
