@@ -33,6 +33,21 @@ test.describe('Nodera WordPress 7.1 Gutenberg acceptance', () => {
 		await expect.poll(() => page.evaluate(({ second }) => Boolean((window as any).wp.data.select('core/block-editor').getBlock(second)?.attributes?.noderaId), ids)).toBe(false);
 	});
 
+	test('keeps descendants untouched for selected-block identity until subtree export is requested', async ({ page }) => {
+		await login(page);
+		const ids = await page.evaluate(() => {
+			const wp = (window as any).wp;
+			const child = wp.blocks.createBlock('core/paragraph', { content: 'Child' });
+			const group = wp.blocks.createBlock('core/group', {}, [child]);
+			wp.data.dispatch('core/block-editor').insertBlocks(group);
+			wp.data.dispatch('core/block-editor').selectBlock(group.clientId);
+			return { group: group.clientId, child: child.clientId };
+		});
+		await expect(page.getByRole('button', { name: /Nodera AI/i }).first()).toBeVisible({ timeout: 30_000 });
+		await expect.poll(() => page.evaluate(({ group }) => Boolean((window as any).wp.data.select('core/block-editor').getBlock(group)?.attributes?.noderaId), ids)).toBe(true);
+		await expect.poll(() => page.evaluate(({ child }) => Boolean((window as any).wp.data.select('core/block-editor').getBlock(child)?.attributes?.noderaId), ids)).toBe(false);
+	});
+
 	test('writes responsive values to native Gutenberg style states', async ({ page }) => {
 		await login(page);
 		const clientId = await page.evaluate(() => {
@@ -80,16 +95,21 @@ test.describe('Nodera WordPress 7.1 Gutenberg acceptance', () => {
 		expect(state.legacyTabsInserter).toBe(false);
 	});
 
-	test('shows explicit provider state inside Gutenberg', async ({ page }) => {
+	test('exposes portable export and import without requiring an API provider', async ({ page }) => {
 		await login(page);
 		await page.evaluate(() => {
 			const wp = (window as any).wp;
-			const block = wp.blocks.createBlock('core/paragraph', { content: 'AI smoke' });
+			const block = wp.blocks.createBlock('core/paragraph', { content: 'Portable AI smoke' });
 			wp.data.dispatch('core/block-editor').insertBlocks(block);
 			wp.data.dispatch('core/block-editor').selectBlock(block.clientId);
 		});
 		await page.getByRole('button', { name: /Nodera AI/i }).first().click();
-		await expect(page.getByText('What should Nodera change?', { exact: true }).first()).toBeVisible();
-		await expect(page.getByRole('button', { name: /Generate in Gutenberg/i }).first()).toBeVisible();
+		await expect(page.getByText(/No API key is required/i).first()).toBeVisible();
+		await expect(page.getByRole('button', { name: /Copy for AI/i }).first()).toBeVisible();
+		await expect(page.getByRole('button', { name: /Download Session JSON/i }).first()).toBeVisible();
+		await expect(page.getByRole('button', { name: /Download Prompt/i }).first()).toBeVisible();
+		await expect(page.getByText('Import AI Result', { exact: true }).first()).toBeVisible();
+		await expect(page.getByRole('button', { name: /Validate & Preview/i }).first()).toBeVisible();
+		await expect(page.getByText('Optional direct AI provider', { exact: true }).first()).toBeVisible();
 	});
 });
