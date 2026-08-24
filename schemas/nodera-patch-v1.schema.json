@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nodera.local/schemas/nodera-patch-v1.schema.json",
+  "title": "Nodera Patch v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "target", "operations"],
+  "properties": {
+    "schema": { "const": "nodera-patch/v1" },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "stableIds", "fingerprint"],
+      "properties": {
+        "kind": { "enum": ["block", "subtree", "selection", "page"] },
+        "stableIds": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^nd_[a-z0-9]{12,40}$" } },
+        "fingerprint": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "operations": {
+      "type": "array",
+      "maxItems": 200,
+      "items": { "$ref": "#/$defs/operation" }
+    }
+  },
+  "$defs": {
+    "block": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "attributes", "innerBlocks"],
+      "properties": {
+        "name": { "type": "string" },
+        "attributes": { "type": "object" },
+        "innerBlocks": { "type": "array", "items": { "$ref": "#/$defs/block" } }
+      }
+    },
+    "operation": {
+      "oneOf": [
+        { "type": "object", "additionalProperties": false, "required": ["op", "stableId", "attributes"], "properties": { "op": { "const": "updateAttributes" }, "stableId": { "type": "string" }, "attributes": { "type": "object" } } },
+        { "type": "object", "additionalProperties": false, "required": ["op", "index", "block"], "properties": { "op": { "const": "insertBlock" }, "parentStableId": { "type": ["string", "null"] }, "index": { "type": "integer", "minimum": 0 }, "block": { "$ref": "#/$defs/block" } } },
+        { "type": "object", "additionalProperties": false, "required": ["op", "stableId"], "properties": { "op": { "const": "removeBlock" }, "stableId": { "type": "string" } } },
+        { "type": "object", "additionalProperties": false, "required": ["op", "stableId", "index"], "properties": { "op": { "const": "moveBlock" }, "stableId": { "type": "string" }, "toParentStableId": { "type": ["string", "null"] }, "index": { "type": "integer", "minimum": 0 } } },
+        { "type": "object", "additionalProperties": false, "required": ["op", "stableId", "block"], "properties": { "op": { "const": "replaceBlock" }, "stableId": { "type": "string" }, "block": { "$ref": "#/$defs/block" } } },
+        { "type": "object", "additionalProperties": false, "required": ["op", "stableId", "blocks"], "properties": { "op": { "const": "replaceInnerBlocks" }, "stableId": { "type": "string" }, "blocks": { "type": "array", "items": { "$ref": "#/$defs/block" } } } }
+      ]
+    }
+  }
+}
