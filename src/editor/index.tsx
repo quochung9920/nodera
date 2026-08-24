@@ -1,5 +1,6 @@
 import { BlockControls, InspectorControls } from '@wordpress/block-editor';
 import {
+	Button,
 	Dropdown,
 	Notice,
 	PanelBody,
@@ -62,6 +63,8 @@ function useEditorContext(clientId?: string): EditorContext {
 				gradients: settings.gradients || [],
 				fontSizes: settings.fontSizes || [],
 				spacingUnits: settings.spacingUnits || [],
+				responsiveEditingEnabled: settings.responsiveEditingEnabled !== false,
+				blockStatesEditingEnabled: settings.blockStatesEditingEnabled !== false,
 			},
 		};
 	}, [clientId]);
@@ -131,7 +134,6 @@ function SelectedBlockNoderaControls(props: any) {
 					<DynamicPanel
 						block={context.selected}
 						metaValue={String(context.meta[window.NoderaSettings?.dynamicMeta || 'nodera_dynamic_text'] || '')}
-						updateBlock={updateBlock}
 						updateMeta={updateMeta}
 					/>
 				</PanelBody>
@@ -157,10 +159,17 @@ function withNoderaGutenbergControls(BlockEdit: any) {
 function PageNodera() {
 	const context = useEditorContext();
 	useEffect(() => startIdentityReconciler(), []);
+	const provider = window.NoderaSettings?.provider;
 
 	return (
 		<PluginSidebar name="nodera-page-tools" title={__('Nodera', 'nodera')} icon="superhero-alt">
 			<PanelBody title={__('Build Page with AI', 'nodera')} initialOpen={false}>
+				{provider && !provider.configured && window.NoderaSettings?.settingsUrl && (
+					<Notice status="info" isDismissible={false}>
+						<p>{__('Direct AI is not configured. Provider credentials remain server-side.', 'nodera')}</p>
+						<Button variant="secondary" href={window.NoderaSettings.settingsUrl}>{__('Open Nodera Settings', 'nodera')}</Button>
+					</Notice>
+				)}
 				<AiPanel
 					blocks={context.blocks}
 					target={context.blocks}
@@ -177,7 +186,7 @@ function PageNodera() {
 			</PanelBody>
 			<PanelBody title={__('Gutenberg-native workflow', 'nodera')} initialOpen>
 				<Notice status="info" isDismissible={false}>
-					{__('Select any Gutenberg block to use Nodera AI, Responsive, Dynamic Data and States directly inside the native Block sidebar. Base styles, List View, Undo/Redo, Save, revisions and rendering remain owned by Gutenberg/WordPress.', 'nodera')}
+					{__('Nodera extends Gutenberg instead of replacing it. WordPress owns the block tree, responsive/pseudo style states, Block Bindings, Core Tabs/Accordion, List View, Undo/Redo, Save, revisions and rendering.', 'nodera')}
 				</Notice>
 			</PanelBody>
 		</PluginSidebar>
