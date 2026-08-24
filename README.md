@@ -4,9 +4,9 @@
 
 Nodera runs directly inside the native WordPress block editor. Gutenberg `post_content` remains the only canonical page document; WordPress continues to own List View, block rendering, Style Engine, Global Styles, Block Bindings, Save, revisions and Undo/Redo.
 
-## 0.1.0-rc.1 — production hardening candidate
+## 0.1.0-rc.2 — portable AI release candidate
 
-RC1 targets WordPress 7.1+ and PHP 8.1+. WordPress 7.1 is the current public WordPress release line targeted by Nodera. The committed `build/` runtime lets WordPress users install and use Nodera without Node.js, npm or Composer.
+RC2 targets WordPress 7.1+ and PHP 8.1+. The committed `build/` runtime lets WordPress users install and use Nodera without Node.js, npm, Composer or an AI API key.
 
 This is a **release candidate**, not a production-certified stable release. Promotion beyond RC requires the runtime and release gates in `docs/PRODUCTION_READINESS.md`.
 
@@ -22,11 +22,51 @@ Select a Gutenberg block to get:
 
 Page-level Nodera tools remain available for whole-page AI and Global Design. Base styling continues to use Gutenberg controls whenever Core already exposes the capability.
 
-### Direct AI providers
+## Primary AI workflow: export → external AI → import
 
-Go to **Settings → Nodera AI** and configure OpenAI, Anthropic, Google Gemini, an OpenAI-compatible public HTTPS endpoint, or leave providers disabled and use the manual external-AI fallback.
+Nodera does **not require an API key** for its primary AI workflow.
 
-For production deployments, credentials can be supplied from `wp-config.php` so the API key does not need to live in the WordPress database:
+1. Select a Gutenberg block, selected subtree, or whole page.
+2. Enter an optional task.
+3. Use **Copy for AI**, **Download Session JSON**, or **Download Prompt**.
+4. Send the portable `nodera-ai-export/v1` session to ChatGPT, Claude, Gemini, Codex, a local model, or any other AI capable of returning JSON.
+5. The external AI returns exactly one `nodera-patch/v1` object.
+6. Paste or upload that JSON under **Import AI Result**.
+7. Nodera validates fingerprint, editable scope, block contracts, attributes, URLs/CSS and candidate structure.
+8. Review semantic diff and quality findings.
+9. Click **Apply to Gutenberg**. Native Gutenberg Undo/Redo and Save/Update remain in control.
+
+Portable sessions are temporary AI context, never a second page/document engine. The server sanitizes and redacts the export before it leaves WordPress.
+
+```text
+Gutenberg target
+  → lazy stable IDs
+  → fingerprint + editable scope
+  → live Block Contracts
+  → server-side context sanitizer/redaction
+  → nodera-ai-export/v1
+  → external AI of your choice
+  → nodera-patch/v1
+  → strict server validator
+  → candidate tree
+  → semantic diff + quality evidence
+  → explicit Apply through core/block-editor
+  → native Undo / Save / revisions
+```
+
+### Export scopes
+
+- **Selected block only** — only the selected block is editable; descendants remain contextual/read-only.
+- **Selected block + inner blocks** — the complete selected Gutenberg subtree is editable.
+- **Whole page** — the document root is editable from the page-level Nodera panel.
+
+Block-only exports assign a persistent ID only to the selected root. Descendant IDs are materialized only when a subtree/page export actually needs them.
+
+### Optional direct AI providers
+
+Direct OpenAI, Anthropic, Google Gemini and OpenAI-compatible integrations remain available under **Settings → Nodera AI**, but they are optional and collapsed behind the portable workflow in the editor.
+
+For deployments that choose direct generation, credentials can be supplied from `wp-config.php` so an API key does not need to live in the WordPress database:
 
 ```php
 define( 'NODERA_AI_PROVIDER', 'openai' );
@@ -36,26 +76,7 @@ define( 'NODERA_AI_API_KEY', '...' );
 define( 'NODERA_AI_ENDPOINT', 'https://example.com/v1/chat/completions' );
 ```
 
-Before provider calls, Nodera validates the editable target, sanitizes/redacts the AI context and rate-limits direct generation. Provider HTTP uses WordPress safe-URL validation, bounded timeouts, no redirects and a bounded response size. Every provider result is untrusted until it passes the `nodera-patch/v1` validator.
-
-### AI safety pipeline
-
-```text
-Gutenberg target
-  → lazy stable IDs
-  → fingerprint + editable scope
-  → live Block Contracts
-  → sanitized provider context
-  → per-user/post generation throttle
-  → provider through safe server-side HTTP
-  → nodera-patch/v1
-  → strict validator
-  → candidate tree
-  → semantic diff + quality evidence
-  → preview/review
-  → Apply through core/block-editor
-  → native Undo / Save
-```
+Direct provider HTTP remains rate-limited, server-side, safe-URL validated and untrusted until the same `nodera-patch/v1` validator succeeds.
 
 ### WordPress 7.1 native-first behavior
 
@@ -63,7 +84,7 @@ Gutenberg target
 - supported pseudo states use native `:hover`, `:focus`, `:focus-visible` and `:active` style states;
 - AI authors native Core Accordion/Tabs families instead of `nodera/accordion` and `nodera/tabs`;
 - old Nodera Accordion/Tabs remain hidden, legacy compatibility blocks;
-- stable IDs are assigned lazily to active Nodera scopes;
+- stable IDs are assigned lazily to the exact active Nodera scope;
 - `build/editor.js` is the single production editor runtime.
 
 ## Install without Node.js
@@ -72,9 +93,9 @@ Gutenberg target
 2. WordPress → **Plugins → Add Plugin → Upload Plugin**.
 3. Activate Nodera. Activation blocks unsupported WordPress/PHP versions or a package missing required runtime assets.
 4. Open a page in Gutenberg and select a block.
-5. Configure direct AI under **Settings → Nodera AI** if desired.
+5. Export the block/subtree/page for your preferred external AI, then import the returned patch.
 
-Node.js and Composer are developer-only requirements.
+Node.js, Composer and AI API keys are not required for end users using portable AI sessions.
 
 ## Development and release gates
 
