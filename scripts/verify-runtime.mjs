@@ -3,12 +3,16 @@ import fs from 'node:fs';
 const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
 const plugin = fs.readFileSync('nodera.php', 'utf8');
 const runtime = fs.readFileSync('build/editor.js', 'utf8');
+const asset = fs.readFileSync('build/editor.asset.php', 'utf8');
 
 if (!plugin.includes(`Version: ${pkg.version}`) || !plugin.includes(`NODERA_VERSION', '${pkg.version}'`)) {
 	throw new Error('Plugin and package versions differ.');
 }
-if (!fs.existsSync('build/editor.asset.php')) throw new Error('Editor asset metadata is missing.');
+if (!asset.includes(pkg.version)) throw new Error('Editor asset metadata version differs from package.json.');
 if (fs.existsSync('build/gutenberg-native.js')) throw new Error('Temporary Gutenberg-native bridge must not exist.');
+for (const file of ['includes/Security/RequestThrottle.php', 'uninstall.php']) {
+	if (!fs.existsSync(file)) throw new Error(`Production hardening file is missing: ${file}`);
+}
 for (const marker of [
 	'NoderaNativeUI',
 	'nodera/gutenberg-native-controls',
