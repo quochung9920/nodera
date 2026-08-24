@@ -26,13 +26,12 @@ final class BlockContractRegistry {
 	private array $adapters = array();
 	private bool $adapters_collected = false;
 
+	/** Register adapter collection after normal block registration has had a chance to run. */
 	public function register(): void {
-		add_action( 'init', array( $this, 'collect_adapters' ), 8 );
+		add_action( 'init', array( $this, 'collect_adapters' ), 100 );
 	}
 
-	/**
-	 * Let trusted plugins describe a third-party block without forking Gutenberg.
-	 */
+	/** Let trusted plugins describe a third-party block without forking Gutenberg. */
 	public function collect_adapters(): void {
 		if ( $this->adapters_collected ) {
 			return;
@@ -55,7 +54,7 @@ final class BlockContractRegistry {
 			return false;
 		}
 		$adapter = array(
-			'aiAuthorable'      => ! empty( $config['aiAuthorable'] ),
+			'aiAuthorable'       => ! empty( $config['aiAuthorable'] ),
 			'attributeAllowlist' => array_values( array_unique( array_filter( array_map( 'strval', (array) ( $config['attributeAllowlist'] ?? array() ) ) ) ) ),
 		);
 		if ( isset( $config['validateAttributes'] ) && is_callable( $config['validateAttributes'] ) ) {
@@ -68,15 +67,13 @@ final class BlockContractRegistry {
 		return true;
 	}
 
-	/**
-	 * Safe adapter metadata for diagnostics and contracts.
-	 */
+	/** Safe adapter metadata for diagnostics and contracts. */
 	public function adapters(): array {
 		$this->ensure_adapters();
 		$out = array();
 		foreach ( $this->adapters as $name => $config ) {
 			$out[ $name ] = array(
-				'aiAuthorable'      => ! empty( $config['aiAuthorable'] ),
+				'aiAuthorable'       => ! empty( $config['aiAuthorable'] ),
 				'attributeAllowlist' => (array) ( $config['attributeAllowlist'] ?? array() ),
 			);
 		}
@@ -114,11 +111,11 @@ final class BlockContractRegistry {
 			'usesContext'     => is_array( $type->uses_context ) ? $type->uses_context : array(),
 			'providesContext' => is_array( $type->provides_context ) ? $type->provides_context : array(),
 			'nodera'          => array(
-				'aiAuthorable'             => $this->is_ai_authorable( $name ),
-				'nativeResponsiveStates'   => version_compare( get_bloginfo( 'version' ), '7.1', '>=' ),
-				'nativePseudoStates'       => in_array( $name, array( 'core/button', 'core/navigation-link' ), true ) ? array( ':hover', ':focus', ':focus-visible', ':active' ) : array(),
-				'thirdPartyAdapter'        => is_array( $adapter ),
-				'adapterAttributeAllowlist'=> is_array( $adapter ) ? (array) ( $adapter['attributeAllowlist'] ?? array() ) : array(),
+				'aiAuthorable'              => $this->is_ai_authorable( $name ),
+				'nativeResponsiveStates'    => version_compare( get_bloginfo( 'version' ), '7.1', '>=' ),
+				'nativePseudoStates'        => in_array( $name, array( 'core/button', 'core/navigation-link' ), true ) ? array( ':hover', ':focus', ':focus-visible', ':active' ) : array(),
+				'thirdPartyAdapter'         => is_array( $adapter ),
+				'adapterAttributeAllowlist' => is_array( $adapter ) ? (array) ( $adapter['attributeAllowlist'] ?? array() ) : array(),
 			),
 		);
 		if ( is_array( $adapter ) && isset( $adapter['transformContract'] ) && is_callable( $adapter['transformContract'] ) ) {
@@ -153,9 +150,9 @@ final class BlockContractRegistry {
 			$names = array_merge(
 				$names,
 				array(
-					'core/group','core/heading','core/paragraph','core/buttons','core/button','core/image','core/cover','core/columns','core/column',
-					'core/accordion','core/accordion-item','core/accordion-heading','core/accordion-panel',
-					'core/tabs','core/tab-list','core/tab-panels','core/tab-panel',
+					'core/group', 'core/heading', 'core/paragraph', 'core/buttons', 'core/button', 'core/image', 'core/cover', 'core/columns', 'core/column',
+					'core/accordion', 'core/accordion-item', 'core/accordion-heading', 'core/accordion-panel',
+					'core/tabs', 'core/tab-list', 'core/tab-panels', 'core/tab-panel',
 				)
 			);
 		}
@@ -264,14 +261,14 @@ final class BlockContractRegistry {
 	private function matches_type( mixed $value, string|array $type ): bool {
 		foreach ( (array) $type as $candidate ) {
 			$valid = match ( $candidate ) {
-				'string' => is_string( $value ),
+				'string'  => is_string( $value ),
 				'boolean' => is_bool( $value ),
 				'integer' => is_int( $value ),
-				'number' => is_int( $value ) || is_float( $value ),
-				'array' => is_array( $value ) && array_is_list( $value ),
-				'object' => is_array( $value ) && ! array_is_list( $value ),
-				'null' => null === $value,
-				default => true,
+				'number'  => is_int( $value ) || is_float( $value ),
+				'array'   => is_array( $value ) && array_is_list( $value ),
+				'object'  => is_array( $value ) && ! array_is_list( $value ),
+				'null'    => null === $value,
+				default   => true,
 			};
 			if ( $valid ) {
 				return true;
