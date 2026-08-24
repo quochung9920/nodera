@@ -32,6 +32,7 @@ for (const runtime of [
 	'schemas/nodera-ai-context-v1.schema.json',
 	'schemas/nodera-ai-export-v1.schema.json',
 	'schemas/nodera-patch-v1.schema.json',
+	'schemas/nodera-update-manifest-v1.schema.json',
 	'uninstall.php',
 	'LICENSE',
 ]) {
@@ -41,6 +42,7 @@ for (const schemaFile of [
 	'schemas/nodera-ai-context-v1.schema.json',
 	'schemas/nodera-ai-export-v1.schema.json',
 	'schemas/nodera-patch-v1.schema.json',
+	'schemas/nodera-update-manifest-v1.schema.json',
 ]) {
 	JSON.parse(fs.readFileSync(schemaFile, 'utf8'));
 }
