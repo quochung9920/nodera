@@ -16,7 +16,12 @@ for (const file of ['includes/Security/RequestThrottle.php', 'uninstall.php']) {
 for (const marker of [
 	'NoderaNativeUI',
 	'nodera/gutenberg-native-controls',
-	'/nodera/v1/ai/generate',
+	'/nodera/v1/ai/export',
+	'/nodera/v1/ai/validate',
+	'nodera-ai-export/v1',
+	'nodera-patch/v1',
+	'Copy for AI',
+	'Import AI Result',
 	'@tablet',
 	'@mobile',
 	':focus-visible',
