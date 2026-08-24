@@ -186,9 +186,49 @@ final class AIRestController {
 		return $body;
 	}
 
+	/**
+	 * Keep block-only sessions from changing child structure. Subtree/page scopes are required for structural edits.
+	 */
+	private function validate_block_scope( array $patch, array $blocks ): bool|WP_Error {
+		if ( 'block' !== ( $patch['target']['kind'] ?? '' ) ) {
+			return true;
+		}
+		$operations = is_array( $patch['operations'] ?? null ) ? $patch['operations'] : array();
+		$root = is_array( $blocks[0] ?? null ) ? $blocks[0] : array();
+		$root_has_children = ! empty( $root['innerBlocks'] );
+		foreach ( $operations as $index => $operation ) {
+			if ( ! is_array( $operation ) ) {
+				continue;
+			}
+			$op = (string) ( $operation['op'] ?? '' );
+			if ( in_array( $op, array( 'insertBlock', 'moveBlock', 'replaceInnerBlocks' ), true ) ) {
+				return new WP_Error(
+					'nodera_ai_block_scope_structure',
+					'Block-only AI sessions cannot restructure inner blocks. Export the selected subtree instead.',
+					array( 'status' => 403, 'operationIndex' => $index )
+				);
+			}
+			if ( 'replaceBlock' === $op ) {
+				$replacement = is_array( $operation['block'] ?? null ) ? $operation['block'] : array();
+				if ( $root_has_children || ! empty( $replacement['innerBlocks'] ) ) {
+					return new WP_Error(
+						'nodera_ai_block_scope_structure',
+						'Block-only replacement cannot add, remove, or replace child structure. Export the selected subtree instead.',
+						array( 'status' => 403, 'operationIndex' => $index )
+					);
+				}
+			}
+		}
+		return true;
+	}
+
 	private function validate_body( array $body, array $patch ): array|WP_Error {
 		$blocks = is_array( $body['currentBlocks'] ?? null ) ? $body['currentBlocks'] : array();
 		$ids = is_array( $body['editableStableIds'] ?? null ) ? array_values( array_filter( $body['editableStableIds'], 'is_string' ) ) : array();
+		$scope = $this->validate_block_scope( $patch, $blocks );
+		if ( is_wp_error( $scope ) ) {
+			return $scope;
+		}
 		$result = ( new PatchValidator( $this->contracts ) )->validate( $patch, $blocks, $ids );
 		if ( is_wp_error( $result ) ) {
 			return $result;
