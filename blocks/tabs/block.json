@@ -2,11 +2,11 @@
   "$schema": "https://schemas.wp.org/trunk/block.json",
   "apiVersion": 3,
   "name": "nodera/tabs",
-  "version": "0.1.0-alpha.4",
-  "title": "Nodera Tabs",
+  "version": "0.1.0-alpha.5",
+  "title": "Nodera Tabs (Legacy)",
   "category": "design",
   "icon": "index-card",
-  "description": "Keyboard-accessible tabs powered by the WordPress Interactivity API.",
+  "description": "Legacy compatibility block. New content should use the native WordPress Core Tabs block.",
   "textdomain": "nodera",
   "attributes": {
     "items": {
@@ -19,6 +19,7 @@
   },
   "supports": {
     "html": false,
+    "inserter": false,
     "interactivity": true,
     "align": ["wide", "full"],
     "spacing": { "margin": true, "padding": true }
