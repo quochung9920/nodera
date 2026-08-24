@@ -3,6 +3,7 @@ import fs from 'node:fs';
 const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
 const plugin = fs.readFileSync('nodera.php', 'utf8');
 const runtime = fs.readFileSync('build/editor.js', 'utf8');
+const visualRuntime = fs.readFileSync('build/visual-fidelity.js', 'utf8');
 const asset = fs.readFileSync('build/editor.asset.php', 'utf8');
 
 if (!plugin.includes(`Version: ${pkg.version}`) || !plugin.includes(`NODERA_VERSION', '${pkg.version}'`)) {
@@ -16,6 +17,9 @@ for (const file of [
 	'includes/Commercial/UpdateClient.php',
 	'includes/Compatibility/CompatibilityRegistry.php',
 	'includes/Migrations/MigrationManager.php',
+	'includes/Rest/VisualContextController.php',
+	'build/visual-fidelity.js',
+	'build/visual-fidelity.css',
 	'uninstall.php',
 ]) {
 	if (!fs.existsSync(file)) throw new Error(`Production hardening file is missing: ${file}`);
@@ -41,6 +45,17 @@ for (const marker of [
 	'core/tabs',
 ]) {
 	if (!runtime.includes(marker)) throw new Error(`Production editor runtime missing marker: ${marker}`);
+}
+for (const marker of [
+	'NoderaVisualFidelity',
+	'Download Multimodal Bundle',
+	'Download Correction Bundle',
+	'setDeviceType',
+	'layoutGraph',
+	'designFingerprint',
+	'visualFingerprint',
+]) {
+	if (!visualRuntime.includes(marker)) throw new Error(`Visual fidelity runtime missing marker: ${marker}`);
 }
 if (runtime.includes('nodera-studio')) throw new Error('Legacy Nodera Studio runtime leaked into production editor.js.');
 console.log(`Runtime integrity verified for ${pkg.version}`);
