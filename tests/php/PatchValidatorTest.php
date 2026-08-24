@@ -42,6 +42,39 @@ final class PatchValidatorTest extends TestCase {
 		$this->assertSame( 'Updated', $result['candidate'][0]['innerBlocks'][0]['attributes']['content'] );
 	}
 
+	public function test_native_mobile_style_state_is_accepted(): void {
+		$blocks = $this->blocks();
+		$result = ( new PatchValidator( new BlockContractRegistry() ) )->validate(
+			$this->patch( $blocks, array( array( 'op' => 'updateAttributes', 'stableId' => 'nd_bbbbbbbbbbbb', 'attributes' => array( 'style' => array( '@mobile' => array( 'typography' => array( 'fontSize' => '18px' ) ) ) ) ) ) ),
+			$blocks,
+			array( 'nd_aaaaaaaaaaaa', 'nd_bbbbbbbbbbbb' )
+		);
+		$this->assertIsArray( $result );
+		$this->assertSame( '18px', $result['candidate'][0]['innerBlocks'][0]['attributes']['style']['@mobile']['typography']['fontSize'] );
+	}
+
+	public function test_unknown_responsive_style_state_is_rejected(): void {
+		$blocks = $this->blocks();
+		$result = ( new PatchValidator( new BlockContractRegistry() ) )->validate(
+			$this->patch( $blocks, array( array( 'op' => 'updateAttributes', 'stableId' => 'nd_bbbbbbbbbbbb', 'attributes' => array( 'style' => array( '@watch' => array( 'typography' => array( 'fontSize' => '18px' ) ) ) ) ) ) ),
+			$blocks,
+			array( 'nd_aaaaaaaaaaaa', 'nd_bbbbbbbbbbbb' )
+		);
+		$this->assertInstanceOf( WP_Error::class, $result );
+		$this->assertSame( 'nodera_ai_invalid_style_state', $result->get_error_code() );
+	}
+
+	public function test_pseudo_state_is_restricted_to_supported_core_blocks(): void {
+		$blocks = $this->blocks();
+		$result = ( new PatchValidator( new BlockContractRegistry() ) )->validate(
+			$this->patch( $blocks, array( array( 'op' => 'updateAttributes', 'stableId' => 'nd_bbbbbbbbbbbb', 'attributes' => array( 'style' => array( ':hover' => array( 'color' => array( 'text' => '#111' ) ) ) ) ) ) ),
+			$blocks,
+			array( 'nd_aaaaaaaaaaaa', 'nd_bbbbbbbbbbbb' )
+		);
+		$this->assertInstanceOf( WP_Error::class, $result );
+		$this->assertSame( 'nodera_ai_invalid_style_state', $result->get_error_code() );
+	}
+
 	public function test_stale_fingerprint_is_rejected(): void {
 		$blocks = $this->blocks();
 		$patch = $this->patch( $blocks, array() );
@@ -100,9 +133,8 @@ final class PatchValidatorTest extends TestCase {
 		$registry->register_test_type(
 			'core/button',
 			array(
-				'noderaId' => array( 'type' => 'string' ),
-				'text' => array( 'type' => 'string' ),
-				'url' => array( 'type' => 'string' ),
+				'noderaId' => array( 'type' => 'string' ), 'style' => array( 'type' => 'object' ),
+				'text' => array( 'type' => 'string' ), 'url' => array( 'type' => 'string' ),
 			)
 		);
 		$blocks = array( array( 'name' => 'core/button', 'attributes' => array( 'noderaId' => 'nd_aaaaaaaaaaaa', 'text' => 'Go', 'url' => 'https://example.com' ), 'innerBlocks' => array() ) );
