@@ -26,6 +26,7 @@ final class PatchValidator {
 		'flexDirection', 'flexWrap', 'justifyContent', 'alignItems',
 		'display', 'borderRadius', 'opacity',
 	);
+	private const NATIVE_STYLE_STATES = array( '@mobile', '@tablet', ':hover', ':focus', ':focus-visible', ':active' );
 
 	public function __construct( private BlockContractRegistry $contracts ) {}
 
@@ -48,7 +49,7 @@ final class PatchValidator {
 		if ( ! is_array( $patch['target'] ?? null ) ) {
 			return $this->error( 'nodera_ai_invalid_target', 'Patch target is required.', 400 );
 		}
-		$target = $patch['target'];
+		$target         = $patch['target'];
 		$target_unknown = array_diff( array_keys( $target ), array( 'kind', 'stableIds', 'fingerprint' ) );
 		if ( $target_unknown ) {
 			return $this->error( 'nodera_ai_unknown_target_field', 'Patch target contains an unknown field.', 400, array( 'path' => (string) reset( $target_unknown ) ) );
@@ -170,11 +171,15 @@ final class PatchValidator {
 				return $this->error( 'nodera_ai_invalid_attributes', 'Operation attributes must be an object.', 400, array( 'operationIndex' => $index ) );
 			}
 			$current = CandidateTree::find( $current_blocks, (string) $operation['stableId'] );
-			$check   = $this->contracts->validate_attributes( (string) $current['name'], (array) $operation['attributes'] );
+			if ( ! is_array( $current ) ) {
+				return $this->error( 'nodera_ai_unknown_target_block', 'Operation references a block that does not exist.', 400, array( 'operationIndex' => $index ) );
+			}
+			$name  = (string) $current['name'];
+			$check = $this->contracts->validate_attributes( $name, (array) $operation['attributes'] );
 			if ( ! $check['valid'] ) {
 				return $this->error( (string) $check['code'], (string) $check['message'], 400, array( 'operationIndex' => $index, 'path' => $check['path'] ?? '' ) );
 			}
-			$special = $this->validate_special_attributes( (array) $operation['attributes'] );
+			$special = $this->validate_special_attributes( (array) $operation['attributes'], $name );
 			if ( is_wp_error( $special ) ) {
 				return $this->with_operation( $special, $index );
 			}
@@ -222,7 +227,7 @@ final class PatchValidator {
 		if ( ! $check['valid'] ) {
 			return $this->error( (string) $check['code'], (string) $check['message'], 400, array( 'operationIndex' => $index, 'path' => $check['path'] ?? '' ) );
 		}
-		$special = $this->validate_special_attributes( $attributes );
+		$special = $this->validate_special_attributes( $attributes, $name );
 		if ( is_wp_error( $special ) ) {
 			return $this->with_operation( $special, $index );
 		}
@@ -264,12 +269,18 @@ final class PatchValidator {
 	}
 
 	/**
-	 * Validate URL-like, Nodera style and Block Bindings attributes provided by AI.
+	 * Validate URL-like, native Gutenberg style states, legacy Nodera data and bindings provided by AI.
 	 */
-	private function validate_special_attributes( array $attributes ): bool|WP_Error {
+	private function validate_special_attributes( array $attributes, string $block_name ): bool|WP_Error {
 		foreach ( array( 'url', 'href', 'src' ) as $key ) {
 			if ( isset( $attributes[ $key ] ) && is_string( $attributes[ $key ] ) && ! $this->is_safe_url( $attributes[ $key ] ) ) {
 				return $this->error( 'nodera_ai_unsafe_url', 'AI attribute contains an unsafe URL scheme.', 400, array( 'path' => 'attributes.' . $key ) );
+			}
+		}
+		if ( isset( $attributes['style'] ) ) {
+			$result = $this->validate_native_style( $attributes['style'] );
+			if ( is_wp_error( $result ) ) {
+				return $result;
 			}
 		}
 		if ( isset( $attributes['noderaResponsive'] ) ) {
@@ -279,7 +290,7 @@ final class PatchValidator {
 			}
 		}
 		if ( isset( $attributes['noderaStateStyles'] ) ) {
-			$result = $this->validate_responsive_map( $attributes['noderaStateStyles'], array( 'hover', 'focus', 'active' ), 'attributes.noderaStateStyles' );
+			$result = $this->validate_responsive_map( $attributes['noderaStateStyles'], array( 'hover', 'focus', 'focus-visible', 'active' ), 'attributes.noderaStateStyles' );
 			if ( is_wp_error( $result ) ) {
 				return $result;
 			}
@@ -288,7 +299,7 @@ final class PatchValidator {
 			return $this->error( 'nodera_ai_invalid_custom_css', 'Scoped Custom CSS is outside the supported safe grammar.', 400, array( 'path' => 'attributes.noderaCustomCSS' ) );
 		}
 		if ( isset( $attributes['metadata'] ) ) {
-			$result = $this->validate_bindings( $attributes['metadata'] );
+			$result = $this->validate_bindings( $attributes['metadata'], $block_name );
 			if ( is_wp_error( $result ) ) {
 				return $result;
 			}
@@ -297,7 +308,48 @@ final class PatchValidator {
 	}
 
 	/**
-	 * Validate responsive/state maps against the compiler allowlist.
+	 * Validate AI-provided native style objects without trying to replace WordPress' Style Engine schema.
+	 * Unknown ordinary property names are left to the live block supports, but state keys and values are bounded.
+	 */
+	private function validate_native_style( mixed $style, int $depth = 0, string $path = 'attributes.style', int &$keys = 0 ): bool|WP_Error {
+		if ( ! is_array( $style ) || array_is_list( $style ) ) {
+			return $this->error( 'nodera_ai_invalid_style', 'Gutenberg style data must be an object.', 400, array( 'path' => $path ) );
+		}
+		if ( $depth > 10 ) {
+			return $this->error( 'nodera_ai_invalid_style', 'Gutenberg style data is nested too deeply.', 400, array( 'path' => $path ) );
+		}
+		foreach ( $style as $key => $value ) {
+			++$keys;
+			$key = (string) $key;
+			if ( $keys > 300 || '' === $key || preg_match( '/[^A-Za-z0-9_:@.\/-]/', $key ) ) {
+				return $this->error( 'nodera_ai_invalid_style_key', 'Gutenberg style data contains an invalid key.', 400, array( 'path' => $path . '.' . $key ) );
+			}
+			if ( ( str_starts_with( $key, '@' ) || str_starts_with( $key, ':' ) ) && ! in_array( $key, self::NATIVE_STYLE_STATES, true ) ) {
+				return $this->error( 'nodera_ai_invalid_style_state', 'AI attempted to use an unsupported Gutenberg style state.', 400, array( 'path' => $path . '.' . $key ) );
+			}
+			if ( is_array( $value ) ) {
+				if ( array_is_list( $value ) ) {
+					return $this->error( 'nodera_ai_invalid_style', 'Gutenberg style arrays are not accepted from AI.', 400, array( 'path' => $path . '.' . $key ) );
+				}
+				$result = $this->validate_native_style( $value, $depth + 1, $path . '.' . $key, $keys );
+				if ( is_wp_error( $result ) ) {
+					return $result;
+				}
+				continue;
+			}
+			if ( ! is_scalar( $value ) && null !== $value ) {
+				return $this->error( 'nodera_ai_invalid_style_value', 'Gutenberg style data contains a non-scalar value.', 400, array( 'path' => $path . '.' . $key ) );
+			}
+			$text = trim( (string) $value );
+			if ( strlen( $text ) > 512 || preg_match( '/[<>\x00]/', $text ) || preg_match( '/(?:javascript\s*:|expression\s*\(|@import|url\s*\(\s*["\']?\s*javascript\s*:)/i', $text ) ) {
+				return $this->error( 'nodera_ai_invalid_style_value', 'AI style value is unsafe or exceeds the supported bound.', 400, array( 'path' => $path . '.' . $key ) );
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * Validate legacy responsive/state maps against the compatibility compiler allowlist.
 	 */
 	private function validate_responsive_map( mixed $map, array $allowed_groups, string $path ): bool|WP_Error {
 		if ( ! is_array( $map ) || array_is_list( $map ) ) {
@@ -327,9 +379,9 @@ final class PatchValidator {
 	}
 
 	/**
-	 * Restrict AI-created bindings to the safe built-in post-meta source.
+	 * Restrict AI-created bindings to a bounded set of WordPress Core sources and live supported attributes.
 	 */
-	private function validate_bindings( mixed $metadata ): bool|WP_Error {
+	private function validate_bindings( mixed $metadata, string $block_name ): bool|WP_Error {
 		if ( ! is_array( $metadata ) || array_is_list( $metadata ) ) {
 			return $this->error( 'nodera_ai_invalid_metadata', 'Block metadata must be an object.', 400, array( 'path' => 'attributes.metadata' ) );
 		}
@@ -339,14 +391,30 @@ final class PatchValidator {
 		if ( ! is_array( $metadata['bindings'] ) || array_is_list( $metadata['bindings'] ) ) {
 			return $this->error( 'nodera_ai_invalid_bindings', 'Block bindings must be an object.', 400, array( 'path' => 'attributes.metadata.bindings' ) );
 		}
+		$contract   = $this->contracts->contract( $block_name );
+		$supported  = is_array( $contract['nodera']['bindingAttributes'] ?? null ) ? $contract['nodera']['bindingAttributes'] : array();
 		foreach ( $metadata['bindings'] as $attribute => $binding ) {
-			if ( ! is_string( $attribute ) || ! is_array( $binding ) || array_is_list( $binding ) ) {
-				return $this->error( 'nodera_ai_invalid_binding', 'Binding declaration is invalid.', 400, array( 'path' => 'attributes.metadata.bindings' ) );
+			if ( ! is_string( $attribute ) || ! in_array( $attribute, $supported, true ) || ! is_array( $binding ) || array_is_list( $binding ) ) {
+				return $this->error( 'nodera_ai_invalid_binding', 'Binding declaration or target attribute is not supported.', 400, array( 'path' => 'attributes.metadata.bindings.' . (string) $attribute ) );
 			}
 			$unknown = array_diff( array_keys( $binding ), array( 'source', 'args' ) );
-			$args    = $binding['args'] ?? null;
-			if ( $unknown || 'core/post-meta' !== ( $binding['source'] ?? null ) || ! is_array( $args ) || array_keys( $args ) !== array( 'key' ) || self::META_KEY !== ( $args['key'] ?? null ) ) {
-				return $this->error( 'nodera_ai_binding_not_allowed', 'AI binding is outside the registered safe source/key allowlist.', 400, array( 'path' => 'attributes.metadata.bindings.' . $attribute ) );
+			if ( $unknown ) {
+				return $this->error( 'nodera_ai_binding_not_allowed', 'Binding contains unknown fields.', 400, array( 'path' => 'attributes.metadata.bindings.' . $attribute ) );
+			}
+			$source = (string) ( $binding['source'] ?? '' );
+			$args   = $binding['args'] ?? array();
+			if ( ! is_array( $args ) || array_is_list( $args ) ) {
+				return $this->error( 'nodera_ai_binding_not_allowed', 'Binding args must be an object.', 400, array( 'path' => 'attributes.metadata.bindings.' . $attribute . '.args' ) );
+			}
+			$valid = match ( $source ) {
+				'core/post-meta'         => array_keys( $args ) === array( 'key' ) && self::META_KEY === ( $args['key'] ?? null ),
+				'core/post-data'         => array_keys( $args ) === array( 'field' ) && in_array( $args['field'] ?? '', array( 'date', 'modified', 'link' ), true ),
+				'core/term-data'         => array_keys( $args ) === array( 'field' ) && in_array( $args['field'] ?? '', array( 'id', 'name', 'link', 'slug', 'description', 'parent', 'count' ), true ),
+				'core/pattern-overrides' => empty( $args ),
+				default                  => false,
+			};
+			if ( ! $valid ) {
+				return $this->error( 'nodera_ai_binding_not_allowed', 'AI binding is outside the registered WordPress Core source/argument allowlist.', 400, array( 'path' => 'attributes.metadata.bindings.' . $attribute ) );
 			}
 		}
 		return true;
@@ -365,7 +433,7 @@ final class PatchValidator {
 	}
 
 	/**
-	 * Validate the same deliberately small Custom CSS grammar used by the runtime compiler.
+	 * Validate the deliberately small legacy Custom CSS grammar used by the compatibility compiler.
 	 */
 	private function is_safe_custom_css( mixed $css ): bool {
 		if ( ! is_string( $css ) ) {
@@ -378,20 +446,21 @@ final class PatchValidator {
 		if ( strlen( $css ) > 8000 || false !== stripos( $css, '@import' ) || false !== stripos( $css, 'url(' ) ) {
 			return false;
 		}
-		if ( preg_match_all( '/(&(?::(?:hover|focus|active))?)\s*\{([^{}]*)\}/', $css, $matches, PREG_SET_ORDER ) < 1 ) {
+		if ( preg_match_all( '/(&(?::(?:hover|focus|focus-visible|active))?)\s*\{([^{}]*)\}/', $css, $matches, PREG_SET_ORDER ) < 1 ) {
+			return false;
+		}
+		$consumed = preg_replace( '/(&(?::(?:hover|focus|focus-visible|active))?)\s*\{([^{}]*)\}/', '', $css );
+		if ( '' !== trim( (string) $consumed ) ) {
 			return false;
 		}
 		foreach ( $matches as $match ) {
-			if ( '' === trim( $match[2] ) || preg_match( '/[<>@]/', $match[2] ) ) {
+			if ( '' === trim( $match[2] ) || preg_match( '/[<>@]/', $match[2] ) || preg_match( '/(?:javascript\s*:|expression\s*\()/i', $match[2] ) ) {
 				return false;
 			}
 		}
 		return true;
 	}
 
-	/**
-	 * Preserve structured error data while attaching an operation index.
-	 */
 	private function with_operation( WP_Error $error, int $index ): WP_Error {
 		$data                   = (array) $error->get_error_data();
 		$data['operationIndex'] = $index;
