@@ -18,7 +18,8 @@ final class ContextSanitizer {
 	public function __construct( private BlockContractRegistry $contracts ) {}
 
 	public function sanitize( array $context ): array {
-		$allowed = array( 'schema', 'task', 'target', 'document', 'context', 'contracts', 'design', 'visualFacts', 'environment', 'limits', 'output' );
+		$this->block_count = 0;
+		$allowed = array( 'schema', 'task', 'target', 'document', 'context', 'contracts', 'design', 'visualFacts', 'nativeWordPress', 'environment', 'limits', 'output' );
 		$out = array_intersect_key( $context, array_flip( $allowed ) );
 		if ( isset( $out['document']['scopeTree'] ) && is_array( $out['document']['scopeTree'] ) ) {
 			$out['document']['scopeTree'] = $this->blocks( $out['document']['scopeTree'] );
@@ -59,7 +60,7 @@ final class ContextSanitizer {
 			return null;
 		}
 		if ( is_string( $value ) ) {
-			return mb_substr( $value, 0, self::MAX_STRING );
+			return function_exists( 'mb_substr' ) ? mb_substr( $value, 0, self::MAX_STRING ) : substr( $value, 0, self::MAX_STRING );
 		}
 		if ( ! is_array( $value ) ) {
 			return is_scalar( $value ) || null === $value ? $value : null;
