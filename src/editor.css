@@ -11,11 +11,42 @@
 	gap: 8px;
 }
 
+.nodera-export-actions {
+	align-items: center;
+}
+
 .nodera-target {
 	margin: 0;
 	padding: 8px 10px;
 	background: #f6f7f7;
 	border-radius: 4px;
+}
+
+.nodera-session-id {
+	margin: 0;
+	word-break: break-all;
+}
+
+.nodera-file-import {
+	display: grid;
+	gap: 6px;
+	padding: 10px;
+	border: 1px dashed #8c8f94;
+	border-radius: 4px;
+}
+
+.nodera-file-import span {
+	font-weight: 600;
+}
+
+.nodera-direct-ai {
+	padding-top: 10px;
+	border-top: 1px solid #dcdcde;
+}
+
+.nodera-direct-ai summary {
+	cursor: pointer;
+	font-weight: 600;
 }
 
 .nodera-field-grid {
