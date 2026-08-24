@@ -27,14 +27,13 @@ export function clientIdToStableId(blocks: NoderaBlock[], clientId: string): str
 	return typeof value === 'string' ? value : undefined;
 }
 
-/** Assign persistent IDs only to the scope Nodera is actively using. */
-export function ensureIdentities(blocks: NoderaBlock[]): number {
+function ensureIdentityList(blocks: NoderaBlock[]): number {
 	const seen = new Set<string>();
 	let changed = 0;
 	const editorDispatch = dispatch('core/block-editor') as unknown as {
 		updateBlockAttributes: (clientId: string, attributes: Record<string, unknown>) => void;
 	};
-	for (const block of flattenBlocks(blocks)) {
+	for (const block of blocks) {
 		if (!block.clientId) continue;
 		const id = block.attributes?.noderaId;
 		if (typeof id !== 'string' || !ID_RE.test(id) || seen.has(id)) {
@@ -47,12 +46,22 @@ export function ensureIdentities(blocks: NoderaBlock[]): number {
 	return changed;
 }
 
+/** Assign persistent IDs to a whole active subtree/page scope. */
+export function ensureIdentities(blocks: NoderaBlock[]): number {
+	return ensureIdentityList(flattenBlocks(blocks));
+}
+
+/** Assign persistent IDs only to the selected roots, without touching descendants. */
+export function ensureRootIdentities(blocks: NoderaBlock[]): number {
+	return ensureIdentityList(blocks);
+}
+
 export const reconcileIdentities = ensureIdentities;
 
 let lastSelected = '';
 let reconciling = false;
 
-/** Opening a legacy page no longer dirties every block; selected subtrees are reconciled on demand. */
+/** Opening or selecting content does not dirty a whole subtree; only the selected root is reconciled. */
 export function startIdentityReconciler(): () => void {
 	const run = () => {
 		if (reconciling) return;
@@ -67,7 +76,7 @@ export function startIdentityReconciler(): () => void {
 		if (!block) return;
 		reconciling = true;
 		try {
-			ensureIdentities([block]);
+			ensureRootIdentities([block]);
 		} finally {
 			reconciling = false;
 		}
